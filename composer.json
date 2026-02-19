@@ -5,17 +5,21 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "illuminate/support": "^11.0|^12.0",
         "illuminate/http": "^11.0|^12.0",
-        "illuminate/contracts": "^11.0|^12.0"
+        "illuminate/support": "^11.0|^12.0"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.0",
-        "phpunit/phpunit": "^10.0"
+        "orchestra/testbench": "^9.0|^10.0",
+        "phpunit/phpunit": "^10.5|^11.5"
     },
     "autoload": {
         "psr-4": {
             "PublishLayer\\LaravelConnector\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PublishLayer\\LaravelConnector\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -24,6 +28,9 @@
                 "PublishLayer\\LaravelConnector\\PublishLayerServiceProvider"
             ]
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
     },
     "minimum-stability": "stable",
     "prefer-stable": true
