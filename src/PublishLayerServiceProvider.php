@@ -15,17 +15,17 @@ class PublishLayerServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/publishlayer.php', 'publishlayer');
+        $this->mergeConfigFrom(__DIR__ . '/../config/publishlayer_connector.php', 'publishlayer_connector');
 
         $this->app->singleton(PublishLayerClientContract::class, function ($app): PublishLayerClient {
-            $defaultConnection = (array) config('publishlayer.connections.default', []);
+            $defaultConnection = (array) config('publishlayer_connector.connections.default', []);
             $connection = [
-                'api_key' => $defaultConnection['api_key'] ?? config('publishlayer.api_key'),
-                'workspace_id' => $defaultConnection['workspace_id'] ?? config('publishlayer.workspace_id'),
-                'base_url' => $defaultConnection['base_url'] ?? config('publishlayer.base_url'),
+                'api_key' => $defaultConnection['api_key'] ?? config('publishlayer_connector.api_key'),
+                'workspace_id' => $defaultConnection['workspace_id'] ?? config('publishlayer_connector.workspace_id'),
+                'base_url' => $defaultConnection['base_url'] ?? config('publishlayer_connector.base_url'),
             ];
-            $http = (array) config('publishlayer.http', []);
-            $http['timeout_seconds'] = config('publishlayer.timeout', $http['timeout_seconds'] ?? 10);
+            $http = (array) config('publishlayer_connector.http', []);
+            $http['timeout_seconds'] = config('publishlayer_connector.timeout', $http['timeout_seconds'] ?? 10);
 
             return new PublishLayerClient($app->make(HttpFactory::class), $connection, $http);
         });
@@ -37,8 +37,8 @@ class PublishLayerServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__ . '/../config/publishlayer.php' => config_path('publishlayer.php'),
-        ], 'publishlayer-config');
+            __DIR__ . '/../config/publishlayer_connector.php' => config_path('publishlayer_connector.php'),
+        ], 'publishlayer-connector-config');
 
         $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
 

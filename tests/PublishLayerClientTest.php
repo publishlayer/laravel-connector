@@ -30,9 +30,9 @@ class PublishLayerClientTest extends TestCase
 
     public function test_config_is_merged_with_default_values(): void
     {
-        self::assertSame('https://api.publishlayer.com', config('publishlayer.base_url'));
-        self::assertSame(10, config('publishlayer.timeout'));
-        self::assertSame('publishlayer/webhook', config('publishlayer.webhooks.path'));
+        self::assertSame('https://api.publishlayer.com', config('publishlayer_connector.base_url'));
+        self::assertSame(10, config('publishlayer_connector.timeout'));
+        self::assertSame('publishlayer/webhook', config('publishlayer_connector.webhooks.path'));
     }
 
     public function test_client_sends_expected_headers_and_base_url(): void

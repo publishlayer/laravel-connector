@@ -18,10 +18,10 @@ abstract class TestCase extends Orchestra
 
     protected function getEnvironmentSetUp($app): void
     {
-        $app['config']->set('publishlayer.webhooks.signing_secret', 'test-secret');
-        $app['config']->set('publishlayer.connections.default.base_url', 'https://api.publishlayer.com');
-        $app['config']->set('publishlayer.connections.default.api_key', 'test-api-key');
-        $app['config']->set('publishlayer.connections.default.workspace_id', 'workspace-test');
-        $app['config']->set('publishlayer.webhooks.path', 'publishlayer/webhook');
+        $app['config']->set('publishlayer_connector.webhooks.signing_secret', 'test-secret');
+        $app['config']->set('publishlayer_connector.connections.default.base_url', 'https://api.publishlayer.com');
+        $app['config']->set('publishlayer_connector.connections.default.api_key', 'test-api-key');
+        $app['config']->set('publishlayer_connector.connections.default.workspace_id', 'workspace-test');
+        $app['config']->set('publishlayer_connector.webhooks.path', 'publishlayer/webhook');
     }
 }

@@ -26,7 +26,7 @@ class WebhookController extends Controller
             ], 400);
         }
 
-        $eventIdHeader = (string) config('publishlayer.webhooks.id_header', 'X-PublishLayer-Event-Id');
+        $eventIdHeader = (string) config('publishlayer_connector.webhooks.id_header', 'X-PublishLayer-Event-Id');
         $eventId = $request->header($eventIdHeader);
 
         if (! is_string($eventId) || $eventId === '') {
@@ -35,7 +35,7 @@ class WebhookController extends Controller
 
         if (is_string($eventId) && $eventId !== '') {
             $cacheKey = sprintf('publishlayer:webhook:%s', $eventId);
-            $ttlSeconds = (int) config('publishlayer.webhooks.idempotency_cache_ttl_seconds', 86400);
+            $ttlSeconds = (int) config('publishlayer_connector.webhooks.idempotency_cache_ttl_seconds', 86400);
 
             if (! Cache::add($cacheKey, true, $ttlSeconds)) {
                 return response()->json([
@@ -47,8 +47,8 @@ class WebhookController extends Controller
 
         $type = isset($payload['type']) && is_string($payload['type']) ? $payload['type'] : null;
         $headers = [
-            'signature' => $request->header((string) config('publishlayer.webhooks.header_name', 'X-PublishLayer-Signature')),
-            'timestamp' => $request->header((string) config('publishlayer.webhooks.timestamp_header', 'X-PublishLayer-Timestamp')),
+            'signature' => $request->header((string) config('publishlayer_connector.webhooks.header_name', 'X-PublishLayer-Signature')),
+            'timestamp' => $request->header((string) config('publishlayer_connector.webhooks.timestamp_header', 'X-PublishLayer-Timestamp')),
             'event_id' => $eventId,
         ];
 

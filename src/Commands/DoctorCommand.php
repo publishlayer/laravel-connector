@@ -16,11 +16,11 @@ class DoctorCommand extends Command
 
     public function handle(PublishLayerClient $client): int
     {
-        $apiKey = (string) config('publishlayer.connections.default.api_key', '');
-        $webhookSecret = (string) config('publishlayer.webhooks.signing_secret', '');
+        $apiKey = (string) config('publishlayer_connector.connections.default.api_key', '');
+        $webhookSecret = (string) config('publishlayer_connector.webhooks.signing_secret', '');
 
-        $this->line('base_url: ' . (string) config('publishlayer.connections.default.base_url'));
-        $this->line('webhook_path: ' . (string) config('publishlayer.webhooks.path'));
+        $this->line('base_url: ' . (string) config('publishlayer_connector.connections.default.base_url'));
+        $this->line('webhook_path: ' . (string) config('publishlayer_connector.webhooks.path'));
 
         $this->line('api_key: ' . ($apiKey !== '' ? 'ok' : 'missing'));
         $this->line('webhook_secret: ' . ($webhookSecret !== '' ? 'ok' : 'missing'));

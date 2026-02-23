@@ -13,14 +13,14 @@ class VerifyPublishLayerSignature
 {
     public function handle(Request $request, Closure $next)
     {
-        $secret = (string) config('publishlayer.webhooks.signing_secret', '');
+        $secret = (string) config('publishlayer_connector.webhooks.signing_secret', '');
 
         if ($secret === '') {
             throw new HttpException(500, 'PublishLayer webhook signing secret is not configured.');
         }
 
-        $timestampHeader = (string) config('publishlayer.webhooks.timestamp_header', 'X-PublishLayer-Timestamp');
-        $signatureHeader = (string) config('publishlayer.webhooks.header_name', 'X-PublishLayer-Signature');
+        $timestampHeader = (string) config('publishlayer_connector.webhooks.timestamp_header', 'X-PublishLayer-Timestamp');
+        $signatureHeader = (string) config('publishlayer_connector.webhooks.header_name', 'X-PublishLayer-Signature');
 
         $timestamp = $request->header($timestampHeader);
         $signature = $request->header($signatureHeader);
@@ -33,7 +33,7 @@ class VerifyPublishLayerSignature
             return $this->unauthorized('invalid_signature');
         }
 
-        $tolerance = (int) config('publishlayer.webhooks.tolerance_seconds', 300);
+        $tolerance = (int) config('publishlayer_connector.webhooks.tolerance_seconds', 300);
 
         if (abs(time() - (int) $timestamp) > $tolerance) {
             return $this->unauthorized('invalid_signature');

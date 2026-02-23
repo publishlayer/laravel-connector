@@ -15,7 +15,7 @@ class InstallCommand extends Command
     public function handle(): int
     {
         $this->call('vendor:publish', [
-            '--tag' => 'publishlayer-config',
+            '--tag' => 'publishlayer-connector-config',
             '--force' => false,
         ]);
 
@@ -24,7 +24,7 @@ class InstallCommand extends Command
         $this->line('1. Set PUBLISHLAYER_API_KEY in your .env file.');
         $this->line('2. Set PUBLISHLAYER_WEBHOOK_SECRET in your .env file.');
         $this->line('3. Optionally set PUBLISHLAYER_WORKSPACE_ID.');
-        $this->line('4. Configure webhook path: ' . config('publishlayer.webhooks.path'));
+        $this->line('4. Configure webhook path: ' . config('publishlayer_connector.webhooks.path'));
         $this->line('5. Recommended: run webhook processing on queues for resilience.');
 
         return self::SUCCESS;

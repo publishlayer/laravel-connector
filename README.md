@@ -40,7 +40,7 @@ composer require publishlayer/laravel-connector:^0.1
 ## Publish config
 
 ```bash
-php artisan vendor:publish --tag=publishlayer-config
+php artisan vendor:publish --tag=publishlayer-connector-config
 ```
 
 Or run:
