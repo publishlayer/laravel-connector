@@ -9,6 +9,7 @@ use Illuminate\Support\ServiceProvider;
 use PublishLayer\LaravelConnector\Client\PublishLayerClient;
 use PublishLayer\LaravelConnector\Commands\DoctorCommand;
 use PublishLayer\LaravelConnector\Commands\InstallCommand;
+use PublishLayer\LaravelConnector\Contracts\PublishLayerClientContract;
 
 class PublishLayerServiceProvider extends ServiceProvider
 {
@@ -16,12 +17,21 @@ class PublishLayerServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/publishlayer.php', 'publishlayer');
 
-        $this->app->singleton(PublishLayerClient::class, function ($app): PublishLayerClient {
-            $connection = (array) config('publishlayer.connections.default', []);
+        $this->app->singleton(PublishLayerClientContract::class, function ($app): PublishLayerClient {
+            $defaultConnection = (array) config('publishlayer.connections.default', []);
+            $connection = [
+                'api_key' => $defaultConnection['api_key'] ?? config('publishlayer.api_key'),
+                'workspace_id' => $defaultConnection['workspace_id'] ?? config('publishlayer.workspace_id'),
+                'base_url' => $defaultConnection['base_url'] ?? config('publishlayer.base_url'),
+            ];
             $http = (array) config('publishlayer.http', []);
+            $http['timeout_seconds'] = config('publishlayer.timeout', $http['timeout_seconds'] ?? 10);
 
             return new PublishLayerClient($app->make(HttpFactory::class), $connection, $http);
         });
+
+        $this->app->alias(PublishLayerClientContract::class, PublishLayerClient::class);
+        $this->app->singleton('publishlayer', fn ($app): PublishLayerClientContract => $app->make(PublishLayerClientContract::class));
     }
 
     public function boot(): void

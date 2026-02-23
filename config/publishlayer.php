@@ -2,11 +2,14 @@
 
 return [
     'base_url' => env('PUBLISHLAYER_BASE_URL', 'https://api.publishlayer.com'),
+    'api_key' => env('PUBLISHLAYER_API_KEY'),
+    'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID'),
+    'timeout' => (int) env('PUBLISHLAYER_TIMEOUT', (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', 10)),
     'connections' => [
         'default' => [
             'api_key' => env('PUBLISHLAYER_API_KEY'),
             'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID'),
-            'base_url' => env('PUBLISHLAYER_BASE_URL', env('PUBLISHLAYER_BASE_URL', 'https://api.publishlayer.com')),
+            'base_url' => env('PUBLISHLAYER_BASE_URL', 'https://api.publishlayer.com'),
         ],
     ],
     'webhooks' => [
@@ -19,7 +22,7 @@ return [
         'idempotency_cache_ttl_seconds' => (int) env('PUBLISHLAYER_WEBHOOK_IDEMPOTENCY_TTL_SECONDS', 86400),
     ],
     'http' => [
-        'timeout_seconds' => (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', 10),
+        'timeout_seconds' => (int) env('PUBLISHLAYER_TIMEOUT', (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', 10)),
         'retries' => (int) env('PUBLISHLAYER_HTTP_RETRIES', 2),
         'retry_sleep_ms' => (int) env('PUBLISHLAYER_HTTP_RETRY_SLEEP_MS', 200),
     ],

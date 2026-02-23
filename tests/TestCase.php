@@ -21,6 +21,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('publishlayer.webhooks.signing_secret', 'test-secret');
         $app['config']->set('publishlayer.connections.default.base_url', 'https://api.publishlayer.com');
         $app['config']->set('publishlayer.connections.default.api_key', 'test-api-key');
+        $app['config']->set('publishlayer.connections.default.workspace_id', 'workspace-test');
         $app['config']->set('publishlayer.webhooks.path', 'publishlayer/webhook');
     }
 }
