@@ -65,12 +65,60 @@ class PublishLayerClient implements PublishLayerClientContract
     }
 
     /**
+     * Get a draft by ID.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDraft(string $draftId): array
+    {
+        return $this->send('GET', '/v1/drafts/' . $draftId);
+    }
+
+    /**
+     * List drafts.
+     *
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    public function listDrafts(array $query = []): array
+    {
+        return $this->send('GET', '/v1/drafts', $query);
+    }
+
+    /**
+     * Register a webhook endpoint.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function registerWebhook(array $payload): array
+    {
+        return $this->sendAdmin('POST', '/v1/clients/webhooks', $payload);
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
     private function send(string $method, string $uri, array $payload = []): array
     {
         $request = $this->request();
+        $response = $method === 'GET'
+            ? $request->get($uri, $payload)
+            : $request->send($method, $uri, ['json' => $payload]);
+
+        return $this->decode($response);
+    }
+
+    /**
+     * Send request using admin key header (for webhook registration).
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function sendAdmin(string $method, string $uri, array $payload = []): array
+    {
+        $request = $this->adminRequest();
         $response = $method === 'GET'
             ? $request->get($uri, $payload)
             : $request->send($method, $uri, ['json' => $payload]);
@@ -117,6 +165,32 @@ class PublishLayerClient implements PublishLayerClientContract
         if (! empty($this->connection['workspace_id'])) {
             $request = $request->withHeaders([
                 'X-PublishLayer-Workspace' => (string) $this->connection['workspace_id'],
+            ]);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Build request with admin key header for privileged operations.
+     */
+    private function adminRequest(): PendingRequest
+    {
+        $request = $this->http
+            ->baseUrl((string) ($this->connection['base_url'] ?? 'https://api.publishlayer.com'))
+            ->acceptJson()
+            ->asJson()
+            ->timeout((int) ($this->httpConfig['timeout_seconds'] ?? 10))
+            ->retry(
+                (int) ($this->httpConfig['retries'] ?? 2),
+                (int) ($this->httpConfig['retry_sleep_ms'] ?? 200),
+                throw: false
+            );
+
+        // Admin endpoints use X-Admin-Key header
+        if (! empty($this->connection['api_key'])) {
+            $request = $request->withHeaders([
+                'X-Admin-Key' => (string) $this->connection['api_key'],
             ]);
         }
 
