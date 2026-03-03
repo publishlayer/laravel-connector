@@ -8,6 +8,7 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use PublishLayer\LaravelConnector\Client\PublishLayerClient;
 use PublishLayer\LaravelConnector\Commands\DoctorCommand;
+use PublishLayer\LaravelConnector\Commands\HeartbeatCommand;
 use PublishLayer\LaravelConnector\Commands\InstallCommand;
 use PublishLayer\LaravelConnector\Commands\RegisterWebhooksCommand;
 use PublishLayer\LaravelConnector\Contracts\PublishLayerClientContract;
@@ -58,6 +59,7 @@ class PublishLayerServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 DoctorCommand::class,
                 RegisterWebhooksCommand::class,
+                HeartbeatCommand::class,
             ]);
         }
     }

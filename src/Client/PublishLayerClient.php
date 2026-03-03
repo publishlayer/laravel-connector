@@ -97,6 +97,17 @@ class PublishLayerClient implements PublishLayerClientContract
     }
 
     /**
+     * Send heartbeat to PublishLayer.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function heartbeat(array $payload = []): array
+    {
+        return $this->send('POST', '/connector/heartbeat', $payload);
+    }
+
+    /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */

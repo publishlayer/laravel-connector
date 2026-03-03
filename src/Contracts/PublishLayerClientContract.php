@@ -29,4 +29,12 @@ interface PublishLayerClientContract
      * @return array<string, mixed>
      */
     public function listSites(): array;
+
+    /**
+     * Send heartbeat to PublishLayer.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function heartbeat(array $payload = []): array;
 }
