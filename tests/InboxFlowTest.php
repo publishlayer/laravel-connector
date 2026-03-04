@@ -39,7 +39,7 @@ class InboxFlowTest extends TestCase
             ->firstOrFail();
         (new ProcessDraftReadyJob($event->id))->handle(app(ImageDownloadService::class));
 
-        $this->assertDatabaseHas('pl_inbox_drafts', [
+        $this->assertDatabaseHas('publishlayer_inbox_drafts', [
             'site_key' => 'site_a',
             'pl_draft_id' => 'draft_inbox_1',
             'title' => 'Inbox Draft One',
@@ -120,7 +120,7 @@ class InboxFlowTest extends TestCase
 
         $response->assertNoContent();
 
-        $this->assertDatabaseMissing('pl_inbox_drafts', [
+        $this->assertDatabaseMissing('publishlayer_inbox_drafts', [
             'site_key' => 'site_off',
             'pl_draft_id' => 'draft_disabled',
         ]);

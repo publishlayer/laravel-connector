@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PlInboxBrief extends Model
 {
-    protected $table = 'pl_inbox_briefs';
+    protected $table = 'publishlayer_inbox_briefs';
 
     protected $fillable = [
         'site_key',

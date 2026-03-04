@@ -242,8 +242,8 @@ PUBLISHLAYER_WEBHOOK_QUEUE=publishlayer
 
 The connector now supports an out-of-the-box Inbox flow for each `site_key` tenant:
 
-1. `draft.ready` webhooks are ingested into `pl_inbox_drafts` (idempotent upsert by `site_key + pl_draft_id`).
-2. `brief.created`/`brief.ready` webhooks are ingested into `pl_inbox_briefs` (idempotent upsert by `site_key + pl_brief_id`).
+1. `draft.ready` webhooks are ingested into `publishlayer_inbox_drafts` (idempotent upsert by `site_key + pl_draft_id`).
+2. `brief.created`/`brief.ready` webhooks are ingested into `publishlayer_inbox_briefs` (idempotent upsert by `site_key + pl_brief_id`).
 3. Minimal portal routes let clients list/read/approve/publish drafts.
 4. Published drafts are available at a simple public route, without a CMS integration.
 

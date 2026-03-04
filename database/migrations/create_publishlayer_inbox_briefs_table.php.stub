@@ -8,11 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('pl_inbox_briefs')) {
+        if (Schema::hasTable('publishlayer_inbox_briefs') || Schema::hasTable('pl_inbox_briefs')) {
             return;
         }
 
-        Schema::create('pl_inbox_briefs', function (Blueprint $table) {
+        Schema::create('publishlayer_inbox_briefs', function (Blueprint $table) {
             $table->id();
             $table->string('site_key', 128);
             $table->string('pl_brief_id', 128);
@@ -22,13 +22,13 @@ return new class extends Migration
             $table->timestamp('received_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['site_key', 'pl_brief_id'], 'pl_inbox_briefs_site_brief_uidx');
-            $table->index(['site_key', 'status'], 'pl_inbox_briefs_site_status_idx');
+            $table->unique(['site_key', 'pl_brief_id'], 'publishlayer_inbox_briefs_site_brief_uidx');
+            $table->index(['site_key', 'status'], 'publishlayer_inbox_briefs_site_status_idx');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('pl_inbox_briefs');
+        Schema::dropIfExists('publishlayer_inbox_briefs');
     }
 };

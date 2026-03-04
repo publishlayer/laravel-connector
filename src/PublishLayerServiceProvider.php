@@ -67,8 +67,9 @@ class PublishLayerServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations/create_publishlayer_connector_heartbeats_table.php.stub' => $this->getMigrationPath('create_publishlayer_connector_heartbeats_table'),
             __DIR__ . '/../database/migrations/create_publishlayer_failed_messages_table.php.stub' => $this->getMigrationPath('create_publishlayer_failed_messages_table'),
             __DIR__ . '/../database/migrations/create_publishlayer_settings_table.php.stub' => $this->getMigrationPath('create_publishlayer_settings_table'),
-            __DIR__ . '/../database/migrations/create_pl_inbox_briefs_table.php.stub' => $this->getMigrationPath('create_pl_inbox_briefs_table'),
-            __DIR__ . '/../database/migrations/create_pl_inbox_drafts_table.php.stub' => $this->getMigrationPath('create_pl_inbox_drafts_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_inbox_briefs_table.php.stub' => $this->getMigrationPath('create_publishlayer_inbox_briefs_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_inbox_drafts_table.php.stub' => $this->getMigrationPath('create_publishlayer_inbox_drafts_table'),
+            __DIR__ . '/../database/migrations/rename_pl_inbox_tables_to_publishlayer_inbox_tables.php.stub' => $this->getMigrationPath('rename_pl_inbox_tables_to_publishlayer_inbox_tables'),
         ], 'publishlayer-connector-migrations');
 
         $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');

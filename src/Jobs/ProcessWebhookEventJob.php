@@ -112,10 +112,10 @@ class ProcessWebhookEventJob implements ShouldQueue
             return;
         }
 
-        if (! Schema::hasTable('pl_inbox_briefs')) {
+        if (! Schema::hasTable('publishlayer_inbox_briefs')) {
             if ($delivery !== null) {
                 $delivery->markIgnored([
-                    'message' => 'pl_inbox_briefs table not found.',
+                    'message' => 'publishlayer_inbox_briefs table not found.',
                 ]);
             }
             $event->markProcessed();

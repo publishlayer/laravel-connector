@@ -297,8 +297,8 @@ class ProcessDraftReadyJob implements ShouldQueue
     ): void
     {
         if (! $inbox->enabledFor($siteKey)
-            || ! Schema::hasTable('pl_inbox_drafts')
-            || ! Schema::hasTable('pl_inbox_briefs')) {
+            || ! Schema::hasTable('publishlayer_inbox_drafts')
+            || ! Schema::hasTable('publishlayer_inbox_briefs')) {
             return;
         }
 

@@ -29,7 +29,7 @@ class PlInboxDraft extends Model
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_FAILED = 'failed';
 
-    protected $table = 'pl_inbox_drafts';
+    protected $table = 'publishlayer_inbox_drafts';
 
     protected $fillable = [
         'site_key',
