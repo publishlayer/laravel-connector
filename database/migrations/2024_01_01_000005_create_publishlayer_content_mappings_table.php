@@ -28,7 +28,7 @@ return new class extends Migration
                 ['site_key', 'mapping_type', 'publishlayer_content_id'],
                 'pl_content_map_site_type_content_uidx'
             );
-            $table->index(['site_key', 'publishlayer_draft_id']);
+            $table->index(['site_key', 'publishlayer_draft_id'], 'pl_content_map_site_draft_idx');
             $table->index(['site_key', 'external_type', 'external_id'], 'pl_content_map_external_idx');
         });
     }
