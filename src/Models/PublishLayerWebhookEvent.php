@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace PublishLayer\LaravelConnector\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
+ * @property string $site_key
  * @property string $event_id
  * @property string|null $event_type
  * @property array<string, mixed> $payload
+ * @property array<string, mixed>|null $request_headers
  * @property string $status
  * @property string|null $error
  * @property int $attempts
@@ -29,9 +32,11 @@ class PublishLayerWebhookEvent extends Model
     protected $table = 'publishlayer_webhook_events';
 
     protected $fillable = [
+        'site_key',
         'event_id',
         'event_type',
         'payload',
+        'request_headers',
         'status',
         'error',
         'attempts',
@@ -41,6 +46,7 @@ class PublishLayerWebhookEvent extends Model
 
     protected $casts = [
         'payload' => 'array',
+        'request_headers' => 'array',
         'attempts' => 'integer',
         'received_at' => 'datetime',
         'processed_at' => 'datetime',
@@ -102,5 +108,15 @@ class PublishLayerWebhookEvent extends Model
     public function getOgImageUrl(): ?string
     {
         return $this->payload['og_image_url'] ?? null;
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(PublishLayerDelivery::class, 'webhook_event_id');
+    }
+
+    public function failedMessages(): HasMany
+    {
+        return $this->hasMany(PublishLayerFailedMessage::class, 'webhook_event_id');
     }
 }

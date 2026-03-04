@@ -11,14 +11,21 @@ use PublishLayer\LaravelConnector\Commands\DoctorCommand;
 use PublishLayer\LaravelConnector\Commands\HeartbeatCommand;
 use PublishLayer\LaravelConnector\Commands\InstallCommand;
 use PublishLayer\LaravelConnector\Commands\RegisterWebhooksCommand;
+use PublishLayer\LaravelConnector\Commands\ToggleInboxCommand;
 use PublishLayer\LaravelConnector\Contracts\PublishLayerClientContract;
 use PublishLayer\LaravelConnector\Services\ImageDownloadService;
+use PublishLayer\LaravelConnector\Services\InboxContentRenderer;
+use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SiteKeyResolver;
 
 class PublishLayerServiceProvider extends ServiceProvider
 {
+    private static int $migrationCounter = 0;
+
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/publishlayer_connector.php', 'publishlayer_connector');
+        $this->mergeConfigFrom(__DIR__ . '/../config/publishlayer_inbox.php', 'publishlayer_inbox');
 
         $this->app->singleton(PublishLayerClientContract::class, function ($app): PublishLayerClient {
             $defaultConnection = (array) config('publishlayer_connector.connections.default', []);
@@ -38,21 +45,35 @@ class PublishLayerServiceProvider extends ServiceProvider
 
         // Register ImageDownloadService as singleton
         $this->app->singleton(ImageDownloadService::class);
+        $this->app->singleton(PublishLayerInbox::class);
+        $this->app->singleton(SiteKeyResolver::class);
+        $this->app->singleton(InboxContentRenderer::class);
     }
 
     public function boot(): void
     {
         $this->publishes([
             __DIR__ . '/../config/publishlayer_connector.php' => config_path('publishlayer_connector.php'),
+            __DIR__ . '/../config/publishlayer_inbox.php' => config_path('publishlayer_inbox.php'),
         ], 'publishlayer-connector-config');
 
         // Publish migrations
         $this->publishes([
             __DIR__ . '/../database/migrations/create_publishlayer_webhook_events_table.php.stub' => $this->getMigrationPath('create_publishlayer_webhook_events_table'),
             __DIR__ . '/../database/migrations/create_publishlayer_drafts_table.php.stub' => $this->getMigrationPath('create_publishlayer_drafts_table'),
+            __DIR__ . '/../database/migrations/add_connector_fields_to_publishlayer_webhook_events_table.php.stub' => $this->getMigrationPath('add_connector_fields_to_publishlayer_webhook_events_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_deliveries_table.php.stub' => $this->getMigrationPath('create_publishlayer_deliveries_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_content_mappings_table.php.stub' => $this->getMigrationPath('create_publishlayer_content_mappings_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_connector_heartbeats_table.php.stub' => $this->getMigrationPath('create_publishlayer_connector_heartbeats_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_failed_messages_table.php.stub' => $this->getMigrationPath('create_publishlayer_failed_messages_table'),
+            __DIR__ . '/../database/migrations/create_publishlayer_settings_table.php.stub' => $this->getMigrationPath('create_publishlayer_settings_table'),
+            __DIR__ . '/../database/migrations/create_pl_inbox_briefs_table.php.stub' => $this->getMigrationPath('create_pl_inbox_briefs_table'),
+            __DIR__ . '/../database/migrations/create_pl_inbox_drafts_table.php.stub' => $this->getMigrationPath('create_pl_inbox_drafts_table'),
         ], 'publishlayer-connector-migrations');
 
         $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
+        $this->loadRoutesFrom(__DIR__ . '/../routes/inbox.php');
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'publishlayer-connector');
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -60,6 +81,7 @@ class PublishLayerServiceProvider extends ServiceProvider
                 DoctorCommand::class,
                 RegisterWebhooksCommand::class,
                 HeartbeatCommand::class,
+                ToggleInboxCommand::class,
             ]);
         }
     }
@@ -69,7 +91,7 @@ class PublishLayerServiceProvider extends ServiceProvider
      */
     private function getMigrationPath(string $name): string
     {
-        $timestamp = date('Y_m_d_His');
+        $timestamp = date('Y_m_d_His', time() + self::$migrationCounter++);
 
         return database_path("migrations/{$timestamp}_{$name}.php");
     }

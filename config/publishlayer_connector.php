@@ -1,16 +1,18 @@
 <?php
 
 return [
-    'base_url' => env('PUBLISHLAYER_BASE_URL', 'https://api.publishlayer.com'),
-    'api_key' => env('PUBLISHLAYER_API_KEY'),
-    'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID'),
-    'client_site_id' => env('PUBLISHLAYER_CLIENT_SITE_ID'),
-    'timeout' => (int) env('PUBLISHLAYER_TIMEOUT', (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', 10)),
+    // Support both legacy PL_CONNECTOR_* keys and PUBLISHLAYER_* keys.
+    'base_url' => env('PUBLISHLAYER_BASE_URL', env('PL_CONNECTOR_BASE_URL', 'https://api.publishlayer.com')),
+    'api_key' => env('PUBLISHLAYER_API_KEY', env('PL_CONNECTOR_API_KEY')),
+    'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID', env('PL_CONNECTOR_WORKSPACE_ID')),
+    'client_site_id' => env('PUBLISHLAYER_CLIENT_SITE_ID', env('PL_CONNECTOR_CLIENT_SITE_ID')),
+    'site_key' => env('PUBLISHLAYER_SITE_KEY', env('PL_CONNECTOR_SITE_KEY', env('PL_CONNECTOR_API_KEY'))),
+    'timeout' => (int) env('PUBLISHLAYER_TIMEOUT', (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', (int) env('PL_CONNECTOR_TIMEOUT', 10))),
     'connections' => [
         'default' => [
-            'api_key' => env('PUBLISHLAYER_API_KEY'),
-            'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID'),
-            'base_url' => env('PUBLISHLAYER_BASE_URL', 'https://api.publishlayer.com'),
+            'api_key' => env('PUBLISHLAYER_API_KEY', env('PL_CONNECTOR_API_KEY')),
+            'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID', env('PL_CONNECTOR_WORKSPACE_ID')),
+            'base_url' => env('PUBLISHLAYER_BASE_URL', env('PL_CONNECTOR_BASE_URL', 'https://api.publishlayer.com')),
         ],
     ],
     'webhooks' => [
@@ -20,9 +22,19 @@ return [
         'header_name' => env('PUBLISHLAYER_WEBHOOK_SIGNATURE_HEADER', 'X-PublishLayer-Signature'),
         'id_header' => env('PUBLISHLAYER_WEBHOOK_EVENT_ID_HEADER', 'X-PublishLayer-Event-Id'),
         'timestamp_header' => env('PUBLISHLAYER_WEBHOOK_TIMESTAMP_HEADER', 'X-PublishLayer-Timestamp'),
+        'site_key_header' => env('PUBLISHLAYER_WEBHOOK_SITE_KEY_HEADER', 'X-PublishLayer-Site-Key'),
+        'site_token_header' => env('PUBLISHLAYER_WEBHOOK_SITE_TOKEN_HEADER', 'X-PublishLayer-Site-Token'),
         'tolerance_seconds' => (int) env('PUBLISHLAYER_WEBHOOK_TOLERANCE_SECONDS', 300),
         'idempotency_cache_ttl_seconds' => (int) env('PUBLISHLAYER_WEBHOOK_IDEMPOTENCY_TTL_SECONDS', 86400),
         'queue' => env('PUBLISHLAYER_WEBHOOK_QUEUE', 'default'),
+    ],
+    'activity' => [
+        'path' => env('PUBLISHLAYER_ACTIVITY_PATH', 'publishlayer/connector/activity'),
+        'legacy_path' => env('PUBLISHLAYER_ACTIVITY_LEGACY_PATH', 'publishlayer/activity'),
+    ],
+    'heartbeat' => [
+        'path' => env('PUBLISHLAYER_CONNECTOR_HEARTBEAT_PATH', 'publishlayer/connector/heartbeat'),
+        'legacy_path' => env('PUBLISHLAYER_CONNECTOR_HEARTBEAT_LEGACY_PATH', 'publishlayer/heartbeat'),
     ],
     'http' => [
         'timeout_seconds' => (int) env('PUBLISHLAYER_TIMEOUT', (int) env('PUBLISHLAYER_HTTP_TIMEOUT_SECONDS', 10)),

@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace PublishLayer\LaravelConnector\Http\Controllers;
 
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Events\DraftReady;
 use PublishLayer\LaravelConnector\Events\PublishLayerWebhookReceived;
 use PublishLayer\LaravelConnector\Events\PublishRequested;
 use PublishLayer\LaravelConnector\Events\RevisionReady;
-use PublishLayer\LaravelConnector\Jobs\ProcessDraftReadyJob;
+use PublishLayer\LaravelConnector\Jobs\ProcessWebhookEventJob;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
+use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
 
 class WebhookController extends Controller
 {
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request): JsonResponse|Response
     {
-        $payload = json_decode($request->getContent(), true);
+        $rawBody = $request->getContent();
+        $payload = json_decode($rawBody, true);
 
         if (! is_array($payload)) {
             return response()->json([
@@ -28,18 +33,8 @@ class WebhookController extends Controller
             ], 400);
         }
 
-        $eventIdHeader = (string) config('publishlayer_connector.webhooks.id_header', 'X-PublishLayer-Event-Id');
-        $eventId = $request->header($eventIdHeader);
-
-        if (! is_string($eventId) || $eventId === '') {
-            $eventId = isset($payload['id']) && is_scalar($payload['id']) ? (string) $payload['id'] : null;
-        }
-
-        if (! is_string($eventId) || $eventId === '') {
-            $eventId = isset($payload['correlation_id']) && is_scalar($payload['correlation_id'])
-                ? (string) $payload['correlation_id']
-                : (string) \Illuminate\Support\Str::uuid();
-        }
+        $siteKey = $this->resolveSiteKey($request, $payload);
+        $eventId = $this->resolveEventId($request, $payload, $siteKey, $rawBody);
 
         $type = isset($payload['type']) && is_string($payload['type']) ? $payload['type'] : null;
 
@@ -48,14 +43,19 @@ class WebhookController extends Controller
             $type = $this->inferEventType($payload);
         }
 
+        if ($this->isInboxEventType($type) && ! app(PublishLayerInbox::class)->enabledFor($siteKey)) {
+            return response()->noContent();
+        }
+
         $headers = [
             'signature' => $request->header((string) config('publishlayer_connector.webhooks.header_name', 'X-PublishLayer-Signature')),
             'timestamp' => $request->header((string) config('publishlayer_connector.webhooks.timestamp_header', 'X-PublishLayer-Timestamp')),
             'event_id' => $eventId,
+            'site_key' => $siteKey,
         ];
 
         // Try to persist to database for idempotency and audit
-        $webhookEvent = $this->persistWebhookEvent($eventId, $type, $payload);
+        $webhookEvent = $this->persistWebhookEvent($siteKey, $eventId, $type, $payload, $headers);
 
         if ($webhookEvent === null) {
             // Already processed (duplicate)
@@ -68,13 +68,18 @@ class WebhookController extends Controller
         // Dispatch generic event
         event(new PublishLayerWebhookReceived($payload, $eventId, $type, $headers));
 
-        // Dispatch type-specific events and jobs
+        // Dispatch type-specific events for synchronous listeners
         match ($type) {
-            'draft.ready' => $this->handleDraftReady($payload, $webhookEvent),
+            'draft.ready' => $this->handleDraftReady($payload),
             'revision.ready' => event(new RevisionReady($payload)),
             'publish.requested' => event(new PublishRequested($payload)),
             default => null,
         };
+
+        if ($webhookEvent->exists) {
+            ProcessWebhookEventJob::dispatch($webhookEvent->id)
+                ->onQueue((string) config('publishlayer_connector.webhooks.queue', 'default'));
+        }
 
         return response()->json(['ok' => true]);
     }
@@ -82,66 +87,82 @@ class WebhookController extends Controller
     /**
      * Persist webhook event to database for idempotency.
      * Returns null if already processed (duplicate).
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $headers
      */
-    private function persistWebhookEvent(string $eventId, ?string $type, array $payload): ?PublishLayerWebhookEvent
-    {
+    private function persistWebhookEvent(
+        string $siteKey,
+        string $eventId,
+        ?string $type,
+        array $payload,
+        array $headers
+    ): ?PublishLayerWebhookEvent {
         // Check if table exists (migrations may not have run)
         if (! Schema::hasTable('publishlayer_webhook_events')) {
             // Fallback to cache-based idempotency
             $cacheKey = sprintf('publishlayer:webhook:%s', $eventId);
             $ttlSeconds = (int) config('publishlayer_connector.webhooks.idempotency_cache_ttl_seconds', 86400);
 
-            if (! \Illuminate\Support\Facades\Cache::add($cacheKey, true, $ttlSeconds)) {
+            if (! Cache::add($cacheKey, true, $ttlSeconds)) {
                 return null;
             }
 
             // Create a transient event object
             $event = new PublishLayerWebhookEvent();
+            $event->site_key = $siteKey;
             $event->event_id = $eventId;
             $event->event_type = $type;
             $event->payload = $payload;
+            $event->request_headers = $headers;
             $event->status = PublishLayerWebhookEvent::STATUS_PENDING;
             $event->received_at = now();
 
             return $event;
         }
 
-        // Check for existing event (idempotency)
-        $existing = PublishLayerWebhookEvent::where('event_id', $eventId)->first();
+        try {
+            $createPayload = [
+                'event_type' => $type,
+                'payload' => $payload,
+                'status' => PublishLayerWebhookEvent::STATUS_PENDING,
+                'received_at' => now(),
+            ];
 
-        if ($existing !== null) {
+            if (Schema::hasColumn('publishlayer_webhook_events', 'site_key')) {
+                $createPayload['site_key'] = $siteKey;
+            }
+
+            if (Schema::hasColumn('publishlayer_webhook_events', 'request_headers')) {
+                $createPayload['request_headers'] = $headers;
+            }
+
+            $event = PublishLayerWebhookEvent::firstOrCreate(
+                [
+                    'event_id' => $eventId,
+                ],
+                $createPayload
+            );
+
+            return $event->wasRecentlyCreated ? $event : null;
+        } catch (QueryException) {
+            // Unique key race conditions should be treated as duplicates.
             return null;
         }
-
-        // Create new event record
-        return PublishLayerWebhookEvent::create([
-            'event_id' => $eventId,
-            'event_type' => $type,
-            'payload' => $payload,
-            'status' => PublishLayerWebhookEvent::STATUS_PENDING,
-            'received_at' => now(),
-        ]);
     }
 
     /**
-     * Handle DraftReady event: dispatch event and queue job.
+     * Handle DraftReady event for synchronous listeners.
      */
-    private function handleDraftReady(array $payload, PublishLayerWebhookEvent $webhookEvent): void
+    private function handleDraftReady(array $payload): void
     {
-        // Dispatch event for synchronous listeners
         event(new DraftReady($payload));
-
-        // Queue job for async processing (image download, etc.)
-        if ($webhookEvent->exists) {
-            $queue = (string) config('publishlayer_connector.webhooks.queue', 'default');
-
-            ProcessDraftReadyJob::dispatch($webhookEvent->id)
-                ->onQueue($queue);
-        }
     }
 
     /**
      * Infer event type from payload structure.
+     *
+     * @param array<string, mixed> $payload
      */
     private function inferEventType(array $payload): ?string
     {
@@ -150,6 +171,63 @@ class WebhookController extends Controller
             return 'draft.ready';
         }
 
+        if (isset($payload['pl_brief_id']) || isset($payload['brief_id']) || isset($payload['brief'])) {
+            return 'brief.created';
+        }
+
         return null;
+    }
+
+    private function isInboxEventType(?string $type): bool
+    {
+        return in_array($type, ['draft.ready', 'brief.created', 'brief.ready'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function resolveSiteKey(Request $request, array $payload): string
+    {
+        $siteKeyHeader = (string) config('publishlayer_connector.webhooks.site_key_header', 'X-PublishLayer-Site-Key');
+        $siteTokenHeader = (string) config('publishlayer_connector.webhooks.site_token_header', 'X-PublishLayer-Site-Token');
+
+        $siteKey = $request->input('site_key')
+            ?? $request->input('site_token')
+            ?? $request->header($siteKeyHeader)
+            ?? $request->header($siteTokenHeader)
+            ?? ($payload['site_key'] ?? null)
+            ?? ($payload['site_token'] ?? null)
+            ?? data_get($payload, 'site.key')
+            ?? config('publishlayer_connector.site_key')
+            ?? 'default';
+
+        $siteKey = is_scalar($siteKey) ? trim((string) $siteKey) : '';
+
+        return $siteKey !== '' ? mb_substr($siteKey, 0, 128) : 'default';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function resolveEventId(Request $request, array $payload, string $siteKey, string $rawBody): string
+    {
+        $eventIdHeader = (string) config('publishlayer_connector.webhooks.id_header', 'X-PublishLayer-Event-Id');
+        $eventId = $request->header($eventIdHeader);
+
+        if (! is_string($eventId) || trim($eventId) === '') {
+            $eventId = isset($payload['id']) && is_scalar($payload['id']) ? (string) $payload['id'] : null;
+        }
+
+        if (! is_string($eventId) || trim($eventId) === '') {
+            $eventId = isset($payload['correlation_id']) && is_scalar($payload['correlation_id'])
+                ? (string) $payload['correlation_id']
+                : null;
+        }
+
+        if (! is_string($eventId) || trim($eventId) === '') {
+            $eventId = hash('sha256', $siteKey . '|' . $rawBody);
+        }
+
+        return mb_substr(trim($eventId), 0, 64);
     }
 }
