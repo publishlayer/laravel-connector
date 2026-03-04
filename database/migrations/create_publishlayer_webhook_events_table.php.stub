@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('publishlayer_webhook_events')) {
+            return;
+        }
+
         Schema::create('publishlayer_webhook_events', function (Blueprint $table) {
             $table->id();
             $table->string('event_id', 64)->unique();

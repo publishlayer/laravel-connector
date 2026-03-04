@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('publishlayer_drafts')) {
+            return;
+        }
+
         Schema::create('publishlayer_drafts', function (Blueprint $table) {
             $table->id();
             $table->string('pl_draft_id', 64)->unique();
