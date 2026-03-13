@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Events\DraftReady;
 use PublishLayer\LaravelConnector\Events\PublishLayerWebhookReceived;
@@ -35,6 +36,7 @@ class WebhookController extends Controller
 
         $siteKey = $this->resolveSiteKey($request, $payload);
         $eventId = $this->resolveEventId($request, $payload, $siteKey, $rawBody);
+        $configuredSiteId = (string) config('publishlayer.site_id', '');
 
         $type = isset($payload['type']) && is_string($payload['type']) ? $payload['type'] : null;
 
@@ -44,6 +46,13 @@ class WebhookController extends Controller
         }
 
         if ($this->isInboxEventType($type) && ! app(PublishLayerInbox::class)->enabledFor($siteKey)) {
+            Log::info('PublishLayer webhook ignored because inbox is disabled for the site key.', [
+                'event_id' => $eventId,
+                'event_type' => $type,
+                'site_key' => $siteKey,
+                'site_id' => $configuredSiteId,
+            ]);
+
             return response()->noContent();
         }
 
@@ -58,12 +67,26 @@ class WebhookController extends Controller
         $webhookEvent = $this->persistWebhookEvent($siteKey, $eventId, $type, $payload, $headers);
 
         if ($webhookEvent === null) {
+            Log::info('PublishLayer webhook duplicate ignored.', [
+                'event_id' => $eventId,
+                'event_type' => $type,
+                'site_key' => $siteKey,
+                'site_id' => $configuredSiteId,
+            ]);
+
             // Already processed (duplicate)
             return response()->json([
                 'ok' => true,
                 'duplicate' => true,
             ]);
         }
+
+        Log::info('PublishLayer webhook received.', [
+            'event_id' => $eventId,
+            'event_type' => $type,
+            'site_key' => $siteKey,
+            'site_id' => $configuredSiteId,
+        ]);
 
         // Dispatch generic event
         event(new PublishLayerWebhookReceived($payload, $eventId, $type, $headers));

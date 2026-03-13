@@ -1,320 +1,175 @@
 # PublishLayer Laravel Connector
 
-A Composer installable Laravel package for receiving PublishLayer webhooks and making API calls.
+`publishlayer/laravel-connector` gives a Laravel site a local PublishLayer knowledge base renderer and sync receiver.
 
-## Install
+It is opinionated by default:
+- local database storage for synced articles and categories
+- hosted knowledge base routes and Blade views
+- authenticated sync and health endpoints
+- headless mode support
+- publishable config, migrations, and overridable views
 
-### VCS / tagged release
-
-```bash
-composer require publishlayer/laravel-connector:^0.1
-```
-
-### Local path development
-
-In your Laravel app `composer.json`:
-
-```json
-{
-  "repositories": [
-    {
-      "type": "path",
-      "url": "../publishlayer-laravel-connector",
-      "options": {
-        "symlink": true,
-        "versions": {
-          "publishlayer/laravel-connector": "0.1.0"
-        }
-      }
-    }
-  ]
-}
-```
-
-Then:
+## Installation
 
 ```bash
 composer require publishlayer/laravel-connector:^0.1
-```
-
-## Publish config and migrations
-
-```bash
-php artisan vendor:publish --tag=publishlayer-connector-config
-php artisan vendor:publish --tag=publishlayer-connector-migrations
+php artisan publishlayer:install --publish-config --publish-migrations --publish-views
 php artisan migrate
 ```
 
-Or run the install command:
-
-```bash
-php artisan publishlayer:install
-```
-
-## Environment variables
-
-### Required
-
-- `PUBLISHLAYER_API_KEY` - Your PublishLayer API key
-- `PUBLISHLAYER_WORKSPACE_ID` - Your workspace ID
-- `PUBLISHLAYER_WEBHOOK_SECRET` - Secret for webhook signature verification
-
-### Optional - API
-
-- `PUBLISHLAYER_BASE_URL` - API base URL (default: `https://api.publishlayer.com`)
-- `PUBLISHLAYER_TIMEOUT` - Request timeout in seconds (default: 10)
-- `PUBLISHLAYER_HTTP_RETRIES` - Number of retries (default: 2)
-- `PUBLISHLAYER_HTTP_RETRY_SLEEP_MS` - Retry sleep in ms (default: 200)
-
-### Optional - Webhooks
-
-- `PUBLISHLAYER_WEBHOOK_PATH` - Webhook endpoint path (default: `publishlayer/webhook`)
-- `PUBLISHLAYER_CONNECTOR_PUBLIC_URL` - Your app's public URL for webhook registration
-- `PUBLISHLAYER_CLIENT_SITE_ID` - Client site ID for webhook registration
-- `PUBLISHLAYER_SITE_KEY` - Connector site key used for activity/heartbeat checks
-- `PUBLISHLAYER_WEBHOOK_QUEUE` - Queue name for processing jobs (default: `default`)
-- `PUBLISHLAYER_WEBHOOK_SIGNATURE_HEADER` - Signature header name (default: `X-PublishLayer-Signature`)
-- `PUBLISHLAYER_WEBHOOK_TIMESTAMP_HEADER` - Timestamp header name (default: `X-PublishLayer-Timestamp`)
-- `PUBLISHLAYER_WEBHOOK_SITE_KEY_HEADER` - Site key header name (default: `X-PublishLayer-Site-Key`)
-- `PUBLISHLAYER_WEBHOOK_SITE_TOKEN_HEADER` - Legacy site token header (default: `X-PublishLayer-Site-Token`)
-- `PUBLISHLAYER_WEBHOOK_TOLERANCE_SECONDS` - Signature tolerance (default: 300)
-- `PUBLISHLAYER_WEBHOOK_IDEMPOTENCY_TTL_SECONDS` - Event idempotency TTL (default: 86400)
-
-### Optional - Connector Activity and Heartbeat
-
-- `PUBLISHLAYER_ACTIVITY_PATH` - Activity check endpoint path (default: `publishlayer/connector/activity`)
-- `PUBLISHLAYER_ACTIVITY_LEGACY_PATH` - Backward-compatible activity path alias (default: `publishlayer/activity`)
-- `PUBLISHLAYER_CONNECTOR_HEARTBEAT_PATH` - Local heartbeat endpoint path (default: `publishlayer/connector/heartbeat`)
-- `PUBLISHLAYER_CONNECTOR_HEARTBEAT_LEGACY_PATH` - Backward-compatible heartbeat path alias (default: `publishlayer/heartbeat`)
-
-### Optional - Images
-
-- `PUBLISHLAYER_IMAGES_ENABLED` - Enable automatic image download (default: `true`)
-- `PUBLISHLAYER_IMAGES_DISK` - Storage disk for images (default: `public`)
-- `PUBLISHLAYER_IMAGES_PATH_PREFIX` - Storage path prefix (default: `publishlayer/drafts`)
-- `PUBLISHLAYER_IMAGE_MAX_MB` - Max image size in MB (default: 12)
-- `PUBLISHLAYER_IMAGE_DOWNLOAD_TIMEOUT` - Download timeout in seconds (default: 30)
-
-### Optional - PublishLayer Inbox
-
-- `PUBLISHLAYER_INBOX_ENABLED` - Global Inbox toggle (default: `true`)
-- `PUBLISHLAYER_INBOX_PORTAL_PREFIX` - Client portal path (default: `app/content`)
-- `PUBLISHLAYER_INBOX_PORTAL_MIDDLEWARE` - Comma-separated middleware stack (default: `web`)
-- `PUBLISHLAYER_INBOX_PUBLIC_PATH` - Public route path template (default: `content/{slug}`)
-- `PUBLISHLAYER_INBOX_IMAGE_PATH_PREFIX` - Local image storage path prefix (default: `pl-inbox`)
-
-## Usage
-
-```php
-use PublishLayer\LaravelConnector\Client\PublishLayerClient;
-
-Route::get('/publishlayer-health', function (PublishLayerClient $client) {
-    return $client->health();
-});
-```
-
-Facade usage:
-
-```php
-use PublishLayer\LaravelConnector\Facades\PublishLayer;
-
-$draft = PublishLayer::createDraft([
-    'title' => 'My draft',
-]);
-```
-
-## Webhook signature verification
-
-The package verifies webhooks using HMAC SHA-256 with this canonical string:
-
-`{timestamp}.{raw_request_body}`
-
-The computed hex digest is compared against the signature header using `hash_equals`.
-
-## Listening to events
-
-```php
-<?php
-
-namespace App\Listeners;
-
-use PublishLayer\LaravelConnector\Events\DraftReady;
-
-class HandleDraftReady
-{
-    public function handle(DraftReady $event): void
-    {
-        $payload = $event->payload;
-
-        // Process the draft payload.
-    }
-}
-```
-
-Available events:
-
-- `PublishLayer\LaravelConnector\Events\PublishLayerWebhookReceived` - Generic event for all webhooks
-- `PublishLayer\LaravelConnector\Events\DraftReady` - Fired when a draft.ready webhook is received
-- `PublishLayer\LaravelConnector\Events\DraftImageDownloaded` - Fired after images are downloaded
-- `PublishLayer\LaravelConnector\Events\RevisionReady` - Fired when a revision.ready webhook is received
-- `PublishLayer\LaravelConnector\Events\PublishRequested` - Fired when a publish.requested webhook is received
-
-## Automatic Image Download
-
-When a `draft.ready` webhook is received, the connector automatically:
-
-1. Persists the webhook event to the database for idempotency
-2. Dispatches a queued `ProcessDraftReadyJob`
-3. Downloads the featured image and OG image (if provided in the webhook payload)
-4. Stores images to the configured storage disk
-5. Updates the `publishlayer_drafts` table with image paths
-6. Dispatches a `DraftImageDownloaded` event
-
-### Handling downloaded images
-
-```php
-<?php
-
-namespace App\Listeners;
-
-use PublishLayer\LaravelConnector\Events\DraftImageDownloaded;
-
-class HandleDraftImages
-{
-    public function handle(DraftImageDownloaded $event): void
-    {
-        $draft = $event->draft;
-
-        // Access downloaded image paths
-        $featuredImagePath = $draft->featured_image_path; // e.g. "publishlayer/drafts/draft_123/featured.webp"
-        $ogImagePath = $draft->og_image_path;
-
-        // Get public URLs
-        $featuredUrl = $draft->getFeaturedImageLocalUrl();
-        $ogUrl = $draft->getOgImageLocalUrl();
-
-        // Create your blog post with the downloaded images
-        Post::create([
-            'title' => $draft->title,
-            'content' => $draft->content_html,
-            'featured_image' => $featuredImagePath,
-        ]);
-    }
-}
-```
-
-## Webhook Registration
-
-Register your webhook endpoint with PublishLayer:
-
-```bash
-php artisan publishlayer:webhooks:register
-```
-
-This requires the following environment variables:
+Set these values in `.env`:
 
 ```env
-PUBLISHLAYER_API_KEY=your-api-key
-PUBLISHLAYER_CLIENT_SITE_ID=your-site-id
-PUBLISHLAYER_CONNECTOR_PUBLIC_URL=https://your-app.com
-PUBLISHLAYER_WEBHOOK_SECRET=your-secret-or-leave-blank-to-generate
+PUBLISHLAYER_ENABLED=true
+PUBLISHLAYER_MODE=hosted_views
+PUBLISHLAYER_API_KEY=your-shared-api-key
+PUBLISHLAYER_SITE_ID=your-site-id
+PUBLISHLAYER_ROUTE_PREFIX=knowledge
+PUBLISHLAYER_API_PREFIX=api/publishlayer
+PUBLISHLAYER_LAYOUT=layouts.app
 ```
 
-Options:
-- `--url=` - Override the webhook URL
-- `--force` - Re-register even if already registered
-
-## Queue Processing
-
-The image download job runs on a queue. Make sure you have a queue worker running:
-
-```bash
-php artisan queue:work --queue=default
-```
-
-Or specify a custom queue in your `.env`:
+Optional:
 
 ```env
-PUBLISHLAYER_WEBHOOK_QUEUE=publishlayer
+PUBLISHLAYER_SYNC_SIGNING_SECRET=shared-hmac-secret
+PUBLISHLAYER_ENABLE_CATEGORIES=true
+PUBLISHLAYER_ENABLE_RELATED_ARTICLES=true
+PUBLISHLAYER_AUTO_PUBLISH=false
 ```
 
-## PublishLayer Inbox
-
-The connector now supports an out-of-the-box Inbox flow for each `site_key` tenant:
-
-1. `draft.ready` webhooks are ingested into `publishlayer_inbox_drafts` (idempotent upsert by `site_key + pl_draft_id`).
-2. `brief.created`/`brief.ready` webhooks are ingested into `publishlayer_inbox_briefs` (idempotent upsert by `site_key + pl_brief_id`).
-3. Minimal portal routes let clients list/read/approve/publish drafts.
-4. Published drafts are available at a simple public route, without a CMS integration.
-
-### Enable or disable per site
-
-- Global default: `PUBLISHLAYER_INBOX_ENABLED=true`
-- Per-site override: use the `publishlayer_settings` row with `setting_key=pl_inbox_enabled` and `setting_value={"enabled":false}`
-- Helper command:
+Seed demo content if you want an immediate smoke test:
 
 ```bash
-php artisan pl-inbox:toggle your-site-key on
-php artisan pl-inbox:toggle your-site-key off
+php artisan publishlayer:seed-demo-content
 ```
 
-### Portal and public routes
+## Commands
 
-- `GET /app/content?site_key=...` - list drafts
-- `GET /app/content/{draft}?site_key=...` - read a draft
-- `POST /app/content/{draft}/approve?site_key=...` - mark approved
-- `POST /app/content/{draft}/publish?site_key=...` - mark published
-- `GET /content/{slug}` - public published draft
+- `php artisan publishlayer:install`
+- `php artisan publishlayer:health-check`
+- `php artisan publishlayer:seed-demo-content`
 
-## Connector Activity and Heartbeat
-
-Activity endpoint (accepts `site_key`; `site_token` is still accepted for backward compatibility):
+Useful options:
 
 ```bash
-curl -X POST https://your-app.test/publishlayer/connector/activity \
-  -H "Content-Type: application/json" \
-  -d '{"site_key":"your-site-key"}'
+php artisan publishlayer:install --publish-config --publish-views --publish-migrations --seed-demo
 ```
 
-Heartbeat endpoint:
+## Modes
 
-```bash
-curl -X POST https://your-app.test/publishlayer/connector/heartbeat \
-  -H "Content-Type: application/json" \
-  -d '{"site_key":"your-site-key"}'
-```
+### `hosted_views`
 
-Scheduled heartbeat command:
+- registers public knowledge base routes
+- renders default Blade templates under the `publishlayer::` namespace
+- keeps the host application's layout, header, footer, and branding
 
-```php
-// app/Console/Kernel.php
-protected function schedule(Schedule $schedule): void
+### `headless`
+
+- disables the hosted knowledge base routes
+- keeps sync and health endpoints active
+- still stores content locally for custom API or frontend rendering
+
+## Routes
+
+Default hosted routes in `hosted_views` mode:
+
+- `GET /knowledge`
+- `GET /knowledge/categorie/{slug}`
+- `GET /knowledge/{slug}`
+
+Default API routes whenever the connector is enabled:
+
+- `GET /api/publishlayer/health`
+- `POST /api/publishlayer/sync`
+- `POST /api/publishlayer/webhook`
+
+All route names are prefixed with `publishlayer.`.
+
+## Sync payload
+
+The connector accepts knowledge article payloads from PublishLayer:
+
+```json
 {
-    $schedule->command('publishlayer:heartbeat')->everyFiveMinutes();
+  "type": "knowledge_article",
+  "site_id": "client-site-id",
+  "article": {
+    "id": "article-uuid",
+    "title": "Example title",
+    "slug": "example-title",
+    "summary": "Short summary",
+    "content_html": "<p>Trusted synced HTML</p>",
+    "status": "published"
+  }
 }
 ```
 
-## Database Tables
+Supported article statuses:
 
-The package creates connector persistence tables:
+- `published`
+- `draft`
+- `archived`
+- `unpublished`
+- `deleted`
 
-- `publishlayer_webhook_events` - Stores received webhook events for idempotency and audit
-- `publishlayer_deliveries` - Stores action-level processing/delivery records per webhook event
-- `publishlayer_content_mappings` - Stores PublishLayer-to-connector content mapping metadata
-- `publishlayer_connector_heartbeats` - Stores latest connector heartbeat per `site_key`
-- `publishlayer_failed_messages` - Stores failed connector processing records with payload/context
-- `publishlayer_settings` - Stores connector-scoped settings
+`deleted` removes the local article record idempotently. `unpublished` is stored as an archived article and no longer appears on hosted public routes.
 
-And draft processing table:
+## Webhook auth
 
-- `publishlayer_drafts` - Stores draft data and downloaded image paths
+The connector accepts either:
 
-## Testing
+- `X-PublishLayer-Key: {api key}`
+- `Authorization: Bearer {api key}`
+- HMAC request signing with `PUBLISHLAYER_SYNC_SIGNING_SECRET`
 
-Run the package tests:
+If `PUBLISHLAYER_SITE_ID` is configured, incoming `site_id` values must match it exactly.
+
+## View overrides
+
+Publish the default views:
 
 ```bash
-cd publishlayer-laravel-connector
-composer install
-./vendor/bin/phpunit
+php artisan vendor:publish --tag=publishlayer-connector-views
 ```
+
+Then override them in:
+
+- `resources/views/vendor/publishlayer/knowledge/index.blade.php`
+- `resources/views/vendor/publishlayer/knowledge/category.blade.php`
+- `resources/views/vendor/publishlayer/knowledge/show.blade.php`
+
+Default views extend:
+
+```php
+config('publishlayer.layout', 'layouts.app')
+```
+
+## Troubleshooting
+
+Run:
+
+```bash
+php artisan publishlayer:health-check
+```
+
+Common issues:
+
+- `FAIL app_key`: set `APP_KEY` and run `php artisan key:generate` if needed
+- `FAIL database.tables`: publish migrations and run `php artisan migrate`
+- `FAIL route.sync`: clear route cache and confirm `PUBLISHLAYER_ENABLED=true`
+- `FAIL site_id`: set `PUBLISHLAYER_SITE_ID` to the exact value configured in PublishLayer
+- `401 Unauthorized PublishLayer sync request`: verify the shared API key or HMAC secret
+- `422 The provided site_id does not match`: confirm the destination site identifier matches the connector config
+
+## Health endpoint
+
+The platform can test the connector with:
+
+```http
+GET /api/publishlayer/health
+X-PublishLayer-Key: your-shared-api-key
+X-PublishLayer-Site: your-site-id
+```
+
+The response includes config, route, database, and latest sync log checks.
