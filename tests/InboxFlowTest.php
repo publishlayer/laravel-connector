@@ -9,6 +9,7 @@ use PublishLayer\LaravelConnector\Models\PlInboxDraft;
 use PublishLayer\LaravelConnector\Models\PublishLayerSetting;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
 use PublishLayer\LaravelConnector\Services\ImageDownloadService;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class InboxFlowTest extends TestCase
 {
@@ -37,7 +38,10 @@ class InboxFlowTest extends TestCase
         $event = PublishLayerWebhookEvent::query()
             ->where('event_id', 'evt_inbox_1')
             ->firstOrFail();
-        (new ProcessDraftReadyJob($event->id))->handle(app(ImageDownloadService::class));
+        (new ProcessDraftReadyJob($event->id))->handle(
+            app(ImageDownloadService::class),
+            app(SchemaState::class)
+        );
 
         $this->assertDatabaseHas('publishlayer_inbox_drafts', [
             'site_key' => 'site_a',

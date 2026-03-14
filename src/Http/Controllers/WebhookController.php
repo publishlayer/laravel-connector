@@ -11,7 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Events\DraftReady;
 use PublishLayer\LaravelConnector\Events\PublishLayerWebhookReceived;
 use PublishLayer\LaravelConnector\Events\PublishRequested;
@@ -19,6 +18,7 @@ use PublishLayer\LaravelConnector\Events\RevisionReady;
 use PublishLayer\LaravelConnector\Jobs\ProcessWebhookEventJob;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class WebhookController extends Controller
 {
@@ -122,7 +122,9 @@ class WebhookController extends Controller
         array $headers
     ): ?PublishLayerWebhookEvent {
         // Check if table exists (migrations may not have run)
-        if (! Schema::hasTable('publishlayer_webhook_events')) {
+        $schemaState = app(SchemaState::class);
+
+        if (! $schemaState->hasTable('publishlayer_webhook_events')) {
             // Fallback to cache-based idempotency
             $cacheKey = sprintf('publishlayer:webhook:%s', $eventId);
             $ttlSeconds = (int) config('publishlayer_connector.webhooks.idempotency_cache_ttl_seconds', 86400);
@@ -152,11 +154,11 @@ class WebhookController extends Controller
                 'received_at' => now(),
             ];
 
-            if (Schema::hasColumn('publishlayer_webhook_events', 'site_key')) {
+            if ($schemaState->hasColumn('publishlayer_webhook_events', 'site_key')) {
                 $createPayload['site_key'] = $siteKey;
             }
 
-            if (Schema::hasColumn('publishlayer_webhook_events', 'request_headers')) {
+            if ($schemaState->hasColumn('publishlayer_webhook_events', 'request_headers')) {
                 $createPayload['request_headers'] = $headers;
             }
 

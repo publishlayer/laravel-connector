@@ -7,13 +7,13 @@ namespace PublishLayer\LaravelConnector\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use PublishLayer\LaravelConnector\Models\PublishLayerConnectorHeartbeat;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class ConnectorHeartbeatController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, SchemaState $schemaState): JsonResponse
     {
         $siteKey = $request->input('site_key', $request->input('site_token'));
 
@@ -30,7 +30,7 @@ class ConnectorHeartbeatController extends Controller
             ], 422);
         }
 
-        if (! Schema::hasTable('publishlayer_connector_heartbeats')) {
+        if (! $schemaState->hasTable('publishlayer_connector_heartbeats')) {
             return response()->json([
                 'ok' => false,
                 'error' => 'connector_heartbeats_table_missing',

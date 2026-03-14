@@ -49,6 +49,20 @@ class KnowledgeSyncEndpointTest extends TestCase
         self::assertSame('art_100', $syncLog->source_id);
     }
 
+    public function test_sync_endpoint_returns_contextual_site_id_error_details(): void
+    {
+        $this->withHeaders([
+            'X-PublishLayer-Api-Key' => 'test-sync-key',
+        ])->postJson('/api/publishlayer/sync', array_merge($this->payload(), [
+            'site_id' => 'wrong-site',
+        ]))
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'errors.site_id.0',
+                'The provided site_id [wrong-site] does not match the configured PublishLayer site [site-test]. Update config/publishlayer.php or send the expected site_id.'
+            );
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -9,12 +9,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Models\PublishLayerDelivery;
 use PublishLayer\LaravelConnector\Models\PublishLayerFailedMessage;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
 use PublishLayer\LaravelConnector\Models\PlInboxBrief;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class ProcessWebhookEventJob implements ShouldQueue
 {
@@ -31,7 +31,7 @@ class ProcessWebhookEventJob implements ShouldQueue
     ) {
     }
 
-    public function handle(): void
+    public function handle(SchemaState $schemaState): void
     {
         $event = PublishLayerWebhookEvent::find($this->webhookEventId);
 
@@ -40,12 +40,12 @@ class ProcessWebhookEventJob implements ShouldQueue
         }
 
         $action = $this->resolveAction($event->event_type);
-        $delivery = $this->resolveDelivery($event, $action);
+        $delivery = $this->resolveDelivery($event, $action, $schemaState);
 
         try {
             match ($event->event_type) {
                 'draft.ready' => $this->queueDraftReadyProcessing($event, $delivery),
-                'brief.created', 'brief.ready' => $this->processBriefEvent($event, $delivery),
+                'brief.created', 'brief.ready' => $this->processBriefEvent($event, $delivery, $schemaState),
                 'revision.ready' => $this->acknowledgeSimpleEvent($event, $delivery, 'revision.ready acknowledged'),
                 'publish.requested' => $this->acknowledgeSimpleEvent($event, $delivery, 'publish.requested acknowledged'),
                 default => $this->ignoreUnhandledEvent($event, $delivery),
@@ -55,7 +55,7 @@ class ProcessWebhookEventJob implements ShouldQueue
                 $delivery->markFailed($e->getMessage());
             }
             $event->markFailed($e->getMessage());
-            $this->recordFailure($event, $delivery, $e, ['stage' => 'process_webhook_event']);
+            $this->recordFailure($event, $delivery, $e, ['stage' => 'process_webhook_event'], $schemaState);
 
             throw $e;
         }
@@ -91,7 +91,11 @@ class ProcessWebhookEventJob implements ShouldQueue
         }
     }
 
-    private function processBriefEvent(PublishLayerWebhookEvent $event, ?PublishLayerDelivery $delivery): void
+    private function processBriefEvent(
+        PublishLayerWebhookEvent $event,
+        ?PublishLayerDelivery $delivery,
+        SchemaState $schemaState
+    ): void
     {
         $siteKey = $this->resolveSiteKey($event);
         $inbox = app(PublishLayerInbox::class);
@@ -112,7 +116,7 @@ class ProcessWebhookEventJob implements ShouldQueue
             return;
         }
 
-        if (! Schema::hasTable('publishlayer_inbox_briefs')) {
+        if (! $schemaState->hasTable('publishlayer_inbox_briefs')) {
             if ($delivery !== null) {
                 $delivery->markIgnored([
                     'message' => 'publishlayer_inbox_briefs table not found.',
@@ -179,9 +183,12 @@ class ProcessWebhookEventJob implements ShouldQueue
         PublishLayerWebhookEvent $event,
         ?PublishLayerDelivery $delivery,
         \Throwable $e,
-        ?array $context = null
+        ?array $context = null,
+        ?SchemaState $schemaState = null,
     ): void {
-        if (! Schema::hasTable('publishlayer_failed_messages')) {
+        $schemaState ??= app(SchemaState::class);
+
+        if (! $schemaState->hasTable('publishlayer_failed_messages')) {
             return;
         }
 
@@ -198,9 +205,13 @@ class ProcessWebhookEventJob implements ShouldQueue
         ]);
     }
 
-    private function resolveDelivery(PublishLayerWebhookEvent $event, string $action): ?PublishLayerDelivery
+    private function resolveDelivery(
+        PublishLayerWebhookEvent $event,
+        string $action,
+        SchemaState $schemaState
+    ): ?PublishLayerDelivery
     {
-        if (! Schema::hasTable('publishlayer_deliveries')) {
+        if (! $schemaState->hasTable('publishlayer_deliveries')) {
             return null;
         }
 

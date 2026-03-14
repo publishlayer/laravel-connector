@@ -7,8 +7,8 @@ namespace PublishLayer\LaravelConnector\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Services\ConnectorHealthService;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class InstallConnectorCommand extends Command
 {
@@ -21,7 +21,7 @@ class InstallConnectorCommand extends Command
 
     protected $description = 'Prepare the PublishLayer Laravel connector for local knowledge sync and rendering';
 
-    public function handle(ConnectorHealthService $healthService): int
+    public function handle(ConnectorHealthService $healthService, SchemaState $schemaState): int
     {
         $configPublished = file_exists(config_path('publishlayer.php'));
         $packageEnabled = (bool) config('publishlayer.enabled', true);
@@ -30,6 +30,8 @@ class InstallConnectorCommand extends Command
         $apiPrefix = trim((string) config('publishlayer.api_prefix', 'api/publishlayer'), '/');
         $summary = $healthService->summary();
         $hasCriticalFailures = false;
+        $knowledgeTablesReady = $schemaState->hasTable('publishlayer_articles');
+        $webhookTablesReady = $schemaState->hasTable('publishlayer_webhook_events');
 
         $this->info('PublishLayer Laravel Connector');
         $this->newLine();
@@ -56,11 +58,19 @@ class InstallConnectorCommand extends Command
         }
 
         $this->renderCheck(
-            Schema::hasTable('publishlayer_articles') ? 'pass' : 'warn',
+            $knowledgeTablesReady ? 'pass' : 'warn',
             'database.migrations',
-            Schema::hasTable('publishlayer_articles')
+            $knowledgeTablesReady
                 ? 'Knowledge base migrations are already applied.'
                 : 'Knowledge base tables are not present yet. Run php artisan migrate.'
+        );
+
+        $this->renderCheck(
+            $webhookTablesReady ? 'pass' : 'warn',
+            'database.webhooks',
+            $webhookTablesReady
+                ? 'Webhook event tables are available for durable idempotency and audit logging.'
+                : 'Webhook tables are missing. Webhooks will fall back to cache idempotency until php artisan migrate is run.'
         );
 
         $this->renderCheck(
@@ -100,22 +110,27 @@ class InstallConnectorCommand extends Command
 
         $this->newLine();
         $this->info('Next steps');
-        $this->line(sprintf('1. Set PUBLISHLAYER_API_KEY and PUBLISHLAYER_SITE_ID in %s.', base_path('.env')));
-        $this->line('2. Optionally set PUBLISHLAYER_SYNC_SIGNING_SECRET if you want HMAC-signed sync requests.');
-        if (! Schema::hasTable('publishlayer_articles')) {
-            $this->line('3. Run php artisan migrate to create the PublishLayer knowledge tables.');
+        $step = 1;
+
+        $this->line(sprintf('%d. Set PUBLISHLAYER_API_KEY and PUBLISHLAYER_SITE_ID in %s.', $step++, base_path('.env')));
+        $this->line(sprintf('%d. Optionally set PUBLISHLAYER_SYNC_SIGNING_SECRET if you want HMAC-signed sync requests.', $step++));
+        if (! $knowledgeTablesReady) {
+            $this->line(sprintf('%d. Run php artisan migrate to create the PublishLayer knowledge tables.', $step++));
         } else {
-            $this->line('3. Database tables are ready.');
+            $this->line(sprintf('%d. Database tables are ready.', $step++));
         }
-        $this->line(sprintf('4. Sync endpoint: /%s/sync', $apiPrefix));
-        $this->line(sprintf('5. Health endpoint: /%s/health', $apiPrefix));
+        $this->line(sprintf('%d. Sync endpoint: /%s/sync', $step++, $apiPrefix));
+        $this->line(sprintf('%d. Health endpoint: /%s/health', $step++, $apiPrefix));
+        if (! $webhookTablesReady) {
+            $this->line(sprintf('%d. Run php artisan migrate before accepting production webhooks so idempotency is stored durably.', $step++));
+        }
         if ($mode === 'hosted_views') {
-            $this->line(sprintf('6. Hosted knowledge base: /%s', $routePrefix));
-            $this->line('7. Override views in resources/views/vendor/publishlayer/knowledge if needed.');
+            $this->line(sprintf('%d. Hosted knowledge base: /%s', $step++, $routePrefix));
+            $this->line(sprintf('%d. Override views in resources/views/vendor/publishlayer/knowledge if needed.', $step++));
         } else {
-            $this->line('6. Hosted knowledge routes are disabled because the connector runs in headless mode.');
+            $this->line(sprintf('%d. Hosted knowledge routes are disabled because the connector runs in headless mode.', $step++));
         }
-        $this->line('8. Run php artisan publishlayer:health-check after configuration changes.');
+        $this->line(sprintf('%d. Run php artisan publishlayer:health-check after configuration changes.', $step));
 
         Log::info('PublishLayer connector install command executed.', [
             'config_published' => $configPublished,

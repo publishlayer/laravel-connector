@@ -6,11 +6,15 @@ namespace PublishLayer\LaravelConnector\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Models\PublishLayerSyncLog;
 
 class ConnectorHealthService
 {
+    public function __construct(
+        private readonly SchemaState $schemaState,
+    ) {
+    }
+
     /**
      * @return array{
      *   ok: bool,
@@ -95,7 +99,10 @@ class ConnectorHealthService
             'publishlayer_sync_logs',
         ];
 
-        $missing = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
+        $missing = array_values(array_filter(
+            $requiredTables,
+            fn (string $table): bool => ! $this->schemaState->hasTable($table)
+        ));
         if ($missing !== []) {
             return [
                 'key' => 'database.tables',
@@ -155,7 +162,7 @@ class ConnectorHealthService
      */
     private function latestSyncLog(): ?array
     {
-        if (! Schema::hasTable('publishlayer_sync_logs')) {
+        if (! $this->schemaState->hasTable('publishlayer_sync_logs')) {
             return null;
         }
 

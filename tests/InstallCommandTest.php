@@ -16,6 +16,7 @@ class InstallCommandTest extends TestCase
         $this->artisan('publishlayer:install')
             ->expectsOutputToContain('[PASS] enabled')
             ->expectsOutputToContain('[PASS] app_key')
+            ->expectsOutputToContain('[PASS] database.webhooks')
             ->expectsOutputToContain('Next steps')
             ->expectsOutputToContain('/api/publishlayer/sync')
             ->assertExitCode(0);

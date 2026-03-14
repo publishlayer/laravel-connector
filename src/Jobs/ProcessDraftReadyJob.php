@@ -9,7 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use PublishLayer\LaravelConnector\Events\DraftImageDownloaded;
 use PublishLayer\LaravelConnector\Exceptions\ImageDownloadException;
@@ -22,6 +21,7 @@ use PublishLayer\LaravelConnector\Models\PublishLayerFailedMessage;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
 use PublishLayer\LaravelConnector\Services\ImageDownloadService;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class ProcessDraftReadyJob implements ShouldQueue
 {
@@ -38,8 +38,10 @@ class ProcessDraftReadyJob implements ShouldQueue
     ) {
     }
 
-    public function handle(ImageDownloadService $imageService): void
+    public function handle(ImageDownloadService $imageService, ?SchemaState $schemaState = null): void
     {
+        $schemaState ??= app(SchemaState::class);
+
         $event = PublishLayerWebhookEvent::find($this->webhookEventId);
 
         if (! $event) {
@@ -52,7 +54,7 @@ class ProcessDraftReadyJob implements ShouldQueue
         }
 
         $delivery = null;
-        if (Schema::hasTable('publishlayer_deliveries')) {
+        if ($schemaState->hasTable('publishlayer_deliveries')) {
             $delivery = PublishLayerDelivery::updateOrCreate(
                 [
                     'webhook_event_id' => $event->id,
@@ -86,7 +88,7 @@ class ProcessDraftReadyJob implements ShouldQueue
             if ($delivery !== null) {
                 $delivery->markFailed($e->getMessage());
             }
-            $this->recordFailure($event, $delivery, $e, ['stage' => 'image_download']);
+            $this->recordFailure($event, $delivery, $e, ['stage' => 'image_download'], $schemaState);
 
             if ($e->isPermanent()) {
                 $event->markFailed($e->getMessage());
@@ -103,7 +105,7 @@ class ProcessDraftReadyJob implements ShouldQueue
                 $delivery->markFailed($e->getMessage());
             }
             $event->markFailed($e->getMessage());
-            $this->recordFailure($event, $delivery, $e, ['stage' => 'draft_processing']);
+            $this->recordFailure($event, $delivery, $e, ['stage' => 'draft_processing'], $schemaState);
 
             throw $e;
         }
@@ -149,7 +151,7 @@ class ProcessDraftReadyJob implements ShouldQueue
 
     private function syncContentMapping(PublishLayerWebhookEvent $event, PublishLayerDraft $draft): void
     {
-        if (! Schema::hasTable('publishlayer_content_mappings')) {
+        if (! app(SchemaState::class)->hasTable('publishlayer_content_mappings')) {
             return;
         }
 
@@ -255,9 +257,12 @@ class ProcessDraftReadyJob implements ShouldQueue
         PublishLayerWebhookEvent $event,
         ?PublishLayerDelivery $delivery,
         \Throwable $e,
-        ?array $context = null
+        ?array $context = null,
+        ?SchemaState $schemaState = null,
     ): void {
-        if (! Schema::hasTable('publishlayer_failed_messages')) {
+        $schemaState ??= app(SchemaState::class);
+
+        if (! $schemaState->hasTable('publishlayer_failed_messages')) {
             return;
         }
 
@@ -296,9 +301,11 @@ class ProcessDraftReadyJob implements ShouldQueue
         PublishLayerInbox $inbox
     ): void
     {
+        $schemaState = app(SchemaState::class);
+
         if (! $inbox->enabledFor($siteKey)
-            || ! Schema::hasTable('publishlayer_inbox_drafts')
-            || ! Schema::hasTable('publishlayer_inbox_briefs')) {
+            || ! $schemaState->hasTable('publishlayer_inbox_drafts')
+            || ! $schemaState->hasTable('publishlayer_inbox_briefs')) {
             return;
         }
 

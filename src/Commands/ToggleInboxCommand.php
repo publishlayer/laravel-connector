@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace PublishLayer\LaravelConnector\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class ToggleInboxCommand extends Command
 {
@@ -14,9 +14,9 @@ class ToggleInboxCommand extends Command
 
     protected $description = 'Toggle PublishLayer Inbox for a specific site key';
 
-    public function handle(PublishLayerInbox $inbox): int
+    public function handle(PublishLayerInbox $inbox, SchemaState $schemaState): int
     {
-        if (! Schema::hasTable('publishlayer_settings')) {
+        if (! $schemaState->hasTable('publishlayer_settings')) {
             $this->error('publishlayer_settings table was not found. Run migrations first.');
 
             return self::FAILURE;

@@ -8,16 +8,16 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use PublishLayer\LaravelConnector\Models\PublishLayerConnectorHeartbeat;
 use PublishLayer\LaravelConnector\Models\PublishLayerFailedMessage;
 use PublishLayer\LaravelConnector\Models\PublishLayerSetting;
 use PublishLayer\LaravelConnector\Models\PublishLayerWebhookEvent;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class ConnectorActivityController extends Controller
 {
-    public function show(Request $request): JsonResponse
+    public function show(Request $request, SchemaState $schemaState): JsonResponse
     {
         $siteKey = $this->resolveInputSiteKey($request);
 
@@ -48,7 +48,7 @@ class ConnectorActivityController extends Controller
         $lastProcessedAt = null;
         $recentEventsCount24h = 0;
 
-        if (Schema::hasTable('publishlayer_webhook_events')) {
+        if ($schemaState->hasTable('publishlayer_webhook_events')) {
             $lastWebhookAt = PublishLayerWebhookEvent::query()
                 ->where('site_key', $siteKey)
                 ->max('received_at');
@@ -64,14 +64,14 @@ class ConnectorActivityController extends Controller
         }
 
         $lastHeartbeatAt = null;
-        if (Schema::hasTable('publishlayer_connector_heartbeats')) {
+        if ($schemaState->hasTable('publishlayer_connector_heartbeats')) {
             $lastHeartbeatAt = PublishLayerConnectorHeartbeat::query()
                 ->where('site_key', $siteKey)
                 ->max('last_seen_at');
         }
 
         $failedEventsCount24h = 0;
-        if (Schema::hasTable('publishlayer_failed_messages')) {
+        if ($schemaState->hasTable('publishlayer_failed_messages')) {
             $failedEventsCount24h = PublishLayerFailedMessage::query()
                 ->where('site_key', $siteKey)
                 ->where('failed_at', '>=', now()->subDay())
@@ -89,23 +89,25 @@ class ConnectorActivityController extends Controller
 
     private function siteKeyExists(string $siteKey): bool
     {
+        $schemaState = app(SchemaState::class);
+
         foreach ($this->configuredSiteKeys() as $configuredSiteKey) {
             if (hash_equals($configuredSiteKey, $siteKey)) {
                 return true;
             }
         }
 
-        if (Schema::hasTable('publishlayer_webhook_events')
+        if ($schemaState->hasTable('publishlayer_webhook_events')
             && PublishLayerWebhookEvent::where('site_key', $siteKey)->exists()) {
             return true;
         }
 
-        if (Schema::hasTable('publishlayer_connector_heartbeats')
+        if ($schemaState->hasTable('publishlayer_connector_heartbeats')
             && PublishLayerConnectorHeartbeat::where('site_key', $siteKey)->exists()) {
             return true;
         }
 
-        if (Schema::hasTable('publishlayer_settings')
+        if ($schemaState->hasTable('publishlayer_settings')
             && PublishLayerSetting::where('site_key', $siteKey)->exists()) {
             return true;
         }

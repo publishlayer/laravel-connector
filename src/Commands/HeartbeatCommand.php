@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace PublishLayer\LaravelConnector\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Contracts\PublishLayerClientContract;
 use PublishLayer\LaravelConnector\Models\PublishLayerConnectorHeartbeat;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class HeartbeatCommand extends Command
 {
@@ -15,14 +15,14 @@ class HeartbeatCommand extends Command
 
     protected $description = 'Send heartbeat to PublishLayer to update site connectivity status';
 
-    public function handle(PublishLayerClientContract $client): int
+    public function handle(PublishLayerClientContract $client, SchemaState $schemaState): int
     {
         $siteKey = trim((string) ($this->option('site-key') ?? config('publishlayer_connector.site_key', 'default')));
         if ($siteKey === '') {
             $siteKey = 'default';
         }
 
-        if (Schema::hasTable('publishlayer_connector_heartbeats')) {
+        if ($schemaState->hasTable('publishlayer_connector_heartbeats')) {
             PublishLayerConnectorHeartbeat::updateOrCreate(
                 ['site_key' => mb_substr($siteKey, 0, 128)],
                 [

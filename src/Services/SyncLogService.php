@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace PublishLayer\LaravelConnector\Services;
 
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Models\PublishLayerSyncLog;
 
 class SyncLogService
 {
+    public function __construct(
+        private readonly SchemaState $schemaState,
+    ) {
+    }
+
     /**
      * @param array<string, mixed> $attributes
      */
@@ -22,7 +26,7 @@ class SyncLogService
             'status' => $attributes['status'] ?? null,
         ]);
 
-        if (! Schema::hasTable('publishlayer_sync_logs')) {
+        if (! $this->schemaState->hasTable('publishlayer_sync_logs')) {
             return;
         }
 

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace PublishLayer\LaravelConnector\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Models\PublishLayerArticle;
 use PublishLayer\LaravelConnector\Models\PublishLayerCategory;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 
 class SeedDemoContentCommand extends Command
 {
@@ -15,10 +15,10 @@ class SeedDemoContentCommand extends Command
 
     protected $description = 'Seed demo knowledge base content for the PublishLayer connector';
 
-    public function handle(): int
+    public function handle(SchemaState $schemaState): int
     {
         foreach (['publishlayer_categories', 'publishlayer_articles'] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! $schemaState->hasTable($table)) {
                 $this->error(sprintf('Required table missing: %s. Run php artisan migrate first.', $table));
 
                 return self::FAILURE;

@@ -64,9 +64,20 @@ class SyncController extends Controller
         $configuredSiteId = trim((string) config('publishlayer.site_id', ''));
         $payloadSiteId = is_scalar($request->input('site_id')) ? trim((string) $request->input('site_id')) : '';
 
-        if ($configuredSiteId !== '' && ($payloadSiteId === '' || ! hash_equals($configuredSiteId, $payloadSiteId))) {
-            $validator->errors()->add('site_id', 'The provided site_id does not match the configured PublishLayer site.');
-        }
+        $validator->after(function ($validator) use ($configuredSiteId, $payloadSiteId): void {
+            if ($configuredSiteId === '' || ($payloadSiteId !== '' && hash_equals($configuredSiteId, $payloadSiteId))) {
+                return;
+            }
+
+            $validator->errors()->add(
+                'site_id',
+                sprintf(
+                    'The provided site_id [%s] does not match the configured PublishLayer site [%s]. Update config/publishlayer.php or send the expected site_id.',
+                    $payloadSiteId !== '' ? $payloadSiteId : 'empty',
+                    $configuredSiteId
+                )
+            );
+        });
 
         $sourceId = $this->resolveSourceId($payload);
 

@@ -41,6 +41,15 @@ return [
         'retries' => (int) env('PUBLISHLAYER_HTTP_RETRIES', 2),
         'retry_sleep_ms' => (int) env('PUBLISHLAYER_HTTP_RETRY_SLEEP_MS', 200),
     ],
+    'database' => [
+        'transaction_attempts' => (int) env('PUBLISHLAYER_DB_TRANSACTION_ATTEMPTS', 3),
+        'retry_sleep_ms' => (int) env('PUBLISHLAYER_DB_RETRY_SLEEP_MS', 150),
+    ],
+    'schema_cache' => [
+        'enabled' => (bool) env('PUBLISHLAYER_SCHEMA_CACHE_ENABLED', true),
+        'ttl_seconds' => (int) env('PUBLISHLAYER_SCHEMA_CACHE_TTL_SECONDS', 300),
+        'cache_key_prefix' => env('PUBLISHLAYER_SCHEMA_CACHE_PREFIX', 'publishlayer:schema-state:'),
+    ],
     'images' => [
         'enabled' => (bool) env('PUBLISHLAYER_IMAGES_ENABLED', true),
         'disk' => env('PUBLISHLAYER_IMAGES_DISK', 'public'),

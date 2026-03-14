@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace PublishLayer\LaravelConnector\Services;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PublishLayer\LaravelConnector\Models\PublishLayerArticle;
 use PublishLayer\LaravelConnector\Models\PublishLayerArticleRelation;
 use PublishLayer\LaravelConnector\Models\PublishLayerCategory;
@@ -30,32 +32,103 @@ class KnowledgeSyncService
             throw new \InvalidArgumentException('The article payload is missing a source PublishLayer identifier.');
         }
 
-        return DB::transaction(function () use ($articlePayload, $sourceId): array {
-            $operation = $this->resolveOperation($articlePayload);
+        return $this->runTransactionWithRetry(
+            fn (): array => $this->performSync($articlePayload, $sourceId),
+            $sourceId
+        );
+    }
 
-            if ($operation === self::OPERATION_DELETED) {
-                $this->deleteArticle($sourceId, $this->normalizeString($articlePayload['slug'] ?? null));
+    /**
+     * @param array<string, mixed> $articlePayload
+     * @return array{operation:string,article:?PublishLayerArticle,source_id:string}
+     */
+    protected function performSync(array $articlePayload, string $sourceId): array
+    {
+        $operation = $this->resolveOperation($articlePayload);
 
-                return [
-                    'operation' => self::OPERATION_DELETED,
-                    'article' => null,
-                    'source_id' => $sourceId,
-                ];
-            }
-
-            $category = $this->resolveCategory($articlePayload['category'] ?? null);
-            $article = $this->upsertArticle($articlePayload, $category?->id);
-
-            if ((bool) config('publishlayer.enable_related_articles', true)) {
-                $this->syncRelatedArticles($article, $articlePayload['related_articles'] ?? []);
-            }
+        if ($operation === self::OPERATION_DELETED) {
+            $this->deleteArticle($sourceId, $this->normalizeString($articlePayload['slug'] ?? null));
 
             return [
-                'operation' => $operation,
-                'article' => $article->load(['category', 'relatedArticles']),
+                'operation' => self::OPERATION_DELETED,
+                'article' => null,
                 'source_id' => $sourceId,
             ];
-        });
+        }
+
+        $category = $this->resolveCategory($articlePayload['category'] ?? null);
+        $article = $this->upsertArticle($articlePayload, $category?->id);
+
+        if ((bool) config('publishlayer.enable_related_articles', true)) {
+            $this->syncRelatedArticles($article, $articlePayload['related_articles'] ?? []);
+        }
+
+        return [
+            'operation' => $operation,
+            'article' => $article->load(['category', 'relatedArticles']),
+            'source_id' => $sourceId,
+        ];
+    }
+
+    /**
+     * @param callable():array{operation:string,article:?PublishLayerArticle,source_id:string} $callback
+     * @return array{operation:string,article:?PublishLayerArticle,source_id:string}
+     */
+    protected function runTransactionWithRetry(callable $callback, string $sourceId): array
+    {
+        $attempts = max(1, (int) config('publishlayer_connector.database.transaction_attempts', 3));
+        $sleepMs = max(0, (int) config('publishlayer_connector.database.retry_sleep_ms', 150));
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                return DB::transaction($callback, 1);
+            } catch (QueryException $exception) {
+                if (! $this->shouldRetryDatabaseException($exception) || $attempt >= $attempts) {
+                    throw $exception;
+                }
+
+                Log::warning('PublishLayer knowledge sync transaction failed and will be retried.', [
+                    'source_publishlayer_id' => $sourceId,
+                    'attempt' => $attempt,
+                    'max_attempts' => $attempts,
+                    'retry_sleep_ms' => $sleepMs,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                $this->pauseBeforeRetry($sleepMs);
+            }
+        }
+
+        throw new \RuntimeException('PublishLayer knowledge sync retry loop exited unexpectedly.');
+    }
+
+    protected function pauseBeforeRetry(int $sleepMs): void
+    {
+        if ($sleepMs > 0) {
+            usleep($sleepMs * 1000);
+        }
+    }
+
+    protected function shouldRetryDatabaseException(QueryException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        foreach ([
+            'deadlock',
+            'database is locked',
+            'lock wait timeout',
+            'try restarting transaction',
+            'server has gone away',
+            'lost connection',
+            'no connection to the server',
+            'connection refused',
+        ] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

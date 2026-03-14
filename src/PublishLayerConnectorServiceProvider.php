@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace PublishLayer\LaravelConnector;
 
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use PublishLayer\LaravelConnector\Listeners\FlushSchemaStateCache;
 use PublishLayer\LaravelConnector\Client\PublishLayerClient;
 use PublishLayer\LaravelConnector\Commands\DoctorCommand;
 use PublishLayer\LaravelConnector\Commands\HeartbeatCommand;
@@ -21,6 +24,7 @@ use PublishLayer\LaravelConnector\Services\ImageDownloadService;
 use PublishLayer\LaravelConnector\Services\InboxContentRenderer;
 use PublishLayer\LaravelConnector\Services\KnowledgeSyncService;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
+use PublishLayer\LaravelConnector\Services\SchemaState;
 use PublishLayer\LaravelConnector\Services\SiteKeyResolver;
 use PublishLayer\LaravelConnector\Services\SyncLogService;
 use PublishLayer\LaravelConnector\Support\ConnectorRouteRegistrar;
@@ -59,6 +63,7 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         $this->app->singleton(KnowledgeSyncService::class);
         $this->app->singleton(SyncLogService::class);
         $this->app->singleton(ConnectorHealthService::class);
+        $this->app->singleton(SchemaState::class);
     }
 
     public function boot(): void
@@ -100,6 +105,8 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__ . '/../routes/inbox.php');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'publishlayer');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'publishlayer-connector');
+
+        Event::listen(MigrationsEnded::class, FlushSchemaStateCache::class);
 
         if ($this->app->runningInConsole()) {
             $this->commands([

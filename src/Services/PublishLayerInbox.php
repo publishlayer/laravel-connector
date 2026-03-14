@@ -6,13 +6,17 @@ namespace PublishLayer\LaravelConnector\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Schema;
 use PublishLayer\LaravelConnector\Models\PlInboxDraft;
 use PublishLayer\LaravelConnector\Models\PublishLayerSetting;
 
 class PublishLayerInbox
 {
     public const SETTING_KEY = 'pl_inbox_enabled';
+
+    public function __construct(
+        private readonly SchemaState $schemaState,
+    ) {
+    }
 
     /**
      * @param Model|string|null $clientSite
@@ -27,7 +31,7 @@ class PublishLayerInbox
             return (bool) $overrides[$siteKey];
         }
 
-        if ($siteKey === null || ! Schema::hasTable('publishlayer_settings')) {
+        if ($siteKey === null || ! $this->schemaState->hasTable('publishlayer_settings')) {
             return $globalDefault;
         }
 
