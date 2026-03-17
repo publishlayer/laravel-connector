@@ -23,6 +23,7 @@ class ConnectorRouteRegistrar
         $this->registerApiRoutes();
 
         if ($this->usesHostedViews()) {
+            $this->registerDiscoveryRoutes();
             $this->registerWebRoutes();
         }
     }
@@ -41,6 +42,13 @@ class ConnectorRouteRegistrar
             ->prefix($this->normalizePrefix((string) config('publishlayer.route_prefix', 'knowledge')))
             ->name('publishlayer.')
             ->group(__DIR__ . '/../../routes/web.php');
+    }
+
+    private function registerDiscoveryRoutes(): void
+    {
+        Route::middleware($this->normalizeMiddleware(config('publishlayer.web_middleware', ['web']), ['web']))
+            ->name('publishlayer.')
+            ->group(__DIR__ . '/../../routes/discovery.php');
     }
 
     /**

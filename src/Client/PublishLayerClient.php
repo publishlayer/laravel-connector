@@ -65,6 +65,23 @@ class PublishLayerClient implements PublishLayerClientContract
     }
 
     /**
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    public function getContentMarkdown(string $siteId, string $contentId, array $query = []): array
+    {
+        return $this->send(
+            'GET',
+            $this->siteScopedApiPath(sprintf(
+                '/sites/%s/content/%s/markdown',
+                rawurlencode($siteId),
+                rawurlencode($contentId)
+            )),
+            $query
+        );
+    }
+
+    /**
      * Get a draft by ID.
      *
      * @return array<string, mixed>
@@ -206,5 +223,16 @@ class PublishLayerClient implements PublishLayerClientContract
         }
 
         return $request;
+    }
+
+    private function siteScopedApiPath(string $path): string
+    {
+        $basePath = trim((string) parse_url((string) ($this->connection['base_url'] ?? ''), PHP_URL_PATH), '/');
+
+        if ($basePath === 'api' || str_ends_with($basePath, '/api')) {
+            return $path;
+        }
+
+        return '/api' . $path;
     }
 }

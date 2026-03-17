@@ -31,6 +31,12 @@ interface PublishLayerClientContract
     public function listSites(): array;
 
     /**
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    public function getContentMarkdown(string $siteId, string $contentId, array $query = []): array;
+
+    /**
      * Send heartbeat to PublishLayer.
      *
      * @param array<string, mixed> $payload

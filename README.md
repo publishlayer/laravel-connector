@@ -36,6 +36,9 @@ PUBLISHLAYER_SYNC_SIGNING_SECRET=shared-hmac-secret
 PUBLISHLAYER_ENABLE_CATEGORIES=true
 PUBLISHLAYER_ENABLE_RELATED_ARTICLES=true
 PUBLISHLAYER_AUTO_PUBLISH=false
+PUBLISHLAYER_MARKDOWN_ENABLED=true
+PUBLISHLAYER_MARKDOWN_ACCEPT_NEGOTIATION=true
+PUBLISHLAYER_MARKDOWN_CACHE_TTL=300
 ```
 
 Seed demo content if you want an immediate smoke test:
@@ -74,8 +77,11 @@ php artisan publishlayer:install --publish-config --publish-views --publish-migr
 
 Default hosted routes in `hosted_views` mode:
 
+- `GET /llms.txt`
+- `GET /llms-full.txt`
 - `GET /knowledge`
 - `GET /knowledge/categorie/{slug}`
+- `GET /knowledge/{slug}.md`
 - `GET /knowledge/{slug}`
 
 Default API routes whenever the connector is enabled:
@@ -85,6 +91,23 @@ Default API routes whenever the connector is enabled:
 - `POST /api/publishlayer/webhook`
 
 All route names are prefixed with `publishlayer.`.
+
+## Markdown delivery
+
+When `publishlayer.markdown.enabled=true`, the connector exposes canonical Markdown for published connector articles.
+
+- Direct route: `GET /knowledge/{slug}.md`
+- Accept negotiation: `GET /knowledge/{slug}` with `Accept: text/markdown`
+- AI discovery: `GET /llms.txt` and `GET /llms-full.txt`
+
+If your route prefix is `docs`, the Markdown route becomes `/docs/{slug}.md`. If the route prefix is empty, the route becomes `/{slug}.md`.
+
+Markdown is fetched from the PublishLayer site-scoped API and cached locally. The connector:
+
+- only serves Markdown for locally published articles
+- uses `markdown_checksum` from PublishLayer to refresh the cached payload
+- keeps a stale cache copy and serves it when PublishLayer is temporarily unavailable
+- never exposes draft or archived local content through the Markdown route
 
 ## Sync payload
 

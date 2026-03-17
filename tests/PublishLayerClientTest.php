@@ -52,6 +52,26 @@ class PublishLayerClientTest extends TestCase
         });
     }
 
+    public function test_client_fetches_site_scoped_markdown_from_publishlayer_api(): void
+    {
+        Http::fake([
+            'https://api.publishlayer.com/api/sites/site-test/content/art_100/markdown' => Http::response([
+                'content_id' => 'art_100',
+                'rendered_markdown' => '# Test',
+            ], 200),
+        ]);
+
+        $client = $this->app->make(PublishLayerClient::class);
+        $client->getContentMarkdown('site-test', 'art_100');
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://api.publishlayer.com/api/sites/site-test/content/art_100/markdown'
+                && $request->hasHeader('Authorization', 'Bearer test-api-key')
+                && $request->hasHeader('X-PublishLayer-Workspace', 'workspace-test')
+                && $request->hasHeader('Accept', 'application/json');
+        });
+    }
+
     public function test_client_throws_readable_exception_for_non_2xx_response(): void
     {
         Http::fake([

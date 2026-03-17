@@ -20,6 +20,8 @@ class HeadlessKnowledgeBaseRoutesTest extends TestCase
         self::assertFalse(Route::has('publishlayer.knowledge.index'));
         self::assertFalse(Route::has('publishlayer.knowledge.category'));
         self::assertFalse(Route::has('publishlayer.knowledge.show'));
+        self::assertFalse(Route::has('publishlayer.discovery.llms'));
+        self::assertFalse(Route::has('publishlayer.discovery.llms-full'));
         self::assertTrue(Route::has('publishlayer.api.sync'));
         self::assertTrue(Route::has('publishlayer.api.webhook'));
     }

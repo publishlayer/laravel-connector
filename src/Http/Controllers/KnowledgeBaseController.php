@@ -7,10 +7,12 @@ namespace PublishLayer\LaravelConnector\Http\Controllers;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 use PublishLayer\LaravelConnector\Models\PublishLayerArticle;
 use PublishLayer\LaravelConnector\Models\PublishLayerCategory;
+use PublishLayer\LaravelConnector\Services\MarkdownContentService;
 
 class KnowledgeBaseController extends Controller
 {
@@ -103,17 +105,13 @@ class KnowledgeBaseController extends Controller
         ]);
     }
 
-    public function show(Request $request, string $slug): View
+    public function show(Request $request, string $slug, MarkdownContentService $markdown): View|Response
     {
-        $article = PublishLayerArticle::query()
-            ->published()
-            ->with(['category', 'relatedArticles' => function ($query): void {
-                $query->where('status', PublishLayerArticle::STATUS_PUBLISHED)
-                    ->with('category')
-                    ->orderBy('publishlayer_article_relations.sort_order');
-            }])
-            ->where('slug', $slug)
-            ->firstOrFail();
+        $article = $this->resolvePublishedArticle($slug);
+
+        if ($markdown->markdownEnabled() && $markdown->acceptNegotiationEnabled() && $markdown->requestPrefersMarkdown($request)) {
+            return $markdown->buildResponse($article);
+        }
 
         $relatedArticles = $article->relatedArticles
             ->take($this->relatedArticlesLimit())
@@ -153,6 +151,19 @@ class KnowledgeBaseController extends Controller
             ],
             'structuredData' => $structuredData,
         ]);
+    }
+
+    private function resolvePublishedArticle(string $slug): PublishLayerArticle
+    {
+        return PublishLayerArticle::query()
+            ->published()
+            ->with(['category', 'relatedArticles' => function ($query): void {
+                $query->where('status', PublishLayerArticle::STATUS_PUBLISHED)
+                    ->with('category')
+                    ->orderBy('publishlayer_article_relations.sort_order');
+            }])
+            ->where('slug', $slug)
+            ->firstOrFail();
     }
 
     private function applySearch(Builder $query, string $searchQuery): void

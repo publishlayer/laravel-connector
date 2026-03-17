@@ -31,6 +31,12 @@ return [
 
     'api_middleware' => ['api'],
 
+    'markdown' => [
+        'enabled' => (bool) env('PUBLISHLAYER_MARKDOWN_ENABLED', true),
+        'accept_negotiation' => (bool) env('PUBLISHLAYER_MARKDOWN_ACCEPT_NEGOTIATION', true),
+        'cache_ttl' => (int) env('PUBLISHLAYER_MARKDOWN_CACHE_TTL', 300),
+    ],
+
     'pagination' => [
         'per_page' => (int) env('PUBLISHLAYER_PER_PAGE', 12),
     ],

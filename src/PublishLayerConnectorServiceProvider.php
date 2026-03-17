@@ -23,6 +23,8 @@ use PublishLayer\LaravelConnector\Services\ConnectorHealthService;
 use PublishLayer\LaravelConnector\Services\ImageDownloadService;
 use PublishLayer\LaravelConnector\Services\InboxContentRenderer;
 use PublishLayer\LaravelConnector\Services\KnowledgeSyncService;
+use PublishLayer\LaravelConnector\Services\KnowledgeDiscoveryService;
+use PublishLayer\LaravelConnector\Services\MarkdownContentService;
 use PublishLayer\LaravelConnector\Services\PublishLayerInbox;
 use PublishLayer\LaravelConnector\Services\SchemaState;
 use PublishLayer\LaravelConnector\Services\SiteKeyResolver;
@@ -61,6 +63,8 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         $this->app->singleton(InboxContentRenderer::class);
         $this->app->singleton(ConnectorRouteRegistrar::class);
         $this->app->singleton(KnowledgeSyncService::class);
+        $this->app->singleton(KnowledgeDiscoveryService::class);
+        $this->app->singleton(MarkdownContentService::class);
         $this->app->singleton(SyncLogService::class);
         $this->app->singleton(ConnectorHealthService::class);
         $this->app->singleton(SchemaState::class);
