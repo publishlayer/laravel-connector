@@ -72,7 +72,9 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        if (! $this->hasPublishedConnectorMigrations()) {
+            $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        }
 
         $this->publishes([
             __DIR__ . '/../config/publishlayer.php' => config_path('publishlayer.php'),
@@ -130,5 +132,35 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         $timestamp = date('Y_m_d_His', time() + self::$migrationCounter++);
 
         return database_path("migrations/{$timestamp}_{$name}.php");
+    }
+
+    private function hasPublishedConnectorMigrations(): bool
+    {
+        $migrationDirectory = database_path('migrations');
+        $publishedMigrationSuffixes = [
+            'create_publishlayer_webhook_events_table.php',
+            'create_publishlayer_drafts_table.php',
+            'add_connector_fields_to_publishlayer_webhook_events_table.php',
+            'create_publishlayer_deliveries_table.php',
+            'create_publishlayer_content_mappings_table.php',
+            'create_publishlayer_connector_heartbeats_table.php',
+            'create_publishlayer_failed_messages_table.php',
+            'create_publishlayer_settings_table.php',
+            'create_publishlayer_inbox_briefs_table.php',
+            'create_publishlayer_inbox_drafts_table.php',
+            'rename_pl_inbox_tables_to_publishlayer_inbox_tables.php',
+            'create_publishlayer_categories_table.php',
+            'create_publishlayer_articles_table.php',
+            'create_publishlayer_article_relations_table.php',
+            'create_publishlayer_sync_logs_table.php',
+        ];
+
+        foreach ($publishedMigrationSuffixes as $suffix) {
+            if (glob($migrationDirectory . DIRECTORY_SEPARATOR . '*_' . $suffix) !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
