@@ -85,4 +85,26 @@ class PublishLayerClientTest extends TestCase
 
         $client->createDraft(['title' => 'Test Draft']);
     }
+
+    public function test_register_webhook_uses_admin_and_workspace_headers(): void
+    {
+        Http::fake([
+            'https://api.publishlayer.com/v1/clients/webhooks' => Http::response(['ok' => true], 200),
+        ]);
+
+        $client = $this->app->make(PublishLayerClient::class);
+        $client->registerWebhook([
+            'client_site_id' => 'site-test',
+            'event_type' => 'draft.ready',
+            'url' => 'https://example.test/publishlayer/webhook',
+        ]);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://api.publishlayer.com/v1/clients/webhooks'
+                && $request->hasHeader('X-Admin-Key', 'test-api-key')
+                && $request->hasHeader('Authorization', 'Bearer test-api-key')
+                && $request->hasHeader('X-PublishLayer-Workspace', 'workspace-test')
+                && $request->hasHeader('Accept', 'application/json');
+        });
+    }
 }

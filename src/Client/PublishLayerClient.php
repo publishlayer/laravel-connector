@@ -215,10 +215,15 @@ class PublishLayerClient implements PublishLayerClientContract
                 throw: false
             );
 
-        // Admin endpoints use X-Admin-Key header
         if (! empty($this->connection['api_key'])) {
             $request = $request->withHeaders([
                 'X-Admin-Key' => (string) $this->connection['api_key'],
+            ])->withToken((string) $this->connection['api_key']);
+        }
+
+        if (! empty($this->connection['workspace_id'])) {
+            $request = $request->withHeaders([
+                'X-PublishLayer-Workspace' => (string) $this->connection['workspace_id'],
             ]);
         }
 

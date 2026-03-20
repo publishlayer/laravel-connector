@@ -37,6 +37,14 @@ interface PublishLayerClientContract
     public function getContentMarkdown(string $siteId, string $contentId, array $query = []): array;
 
     /**
+     * Register a webhook endpoint.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    public function registerWebhook(array $payload): array;
+
+    /**
      * Send heartbeat to PublishLayer.
      *
      * @param array<string, mixed> $payload

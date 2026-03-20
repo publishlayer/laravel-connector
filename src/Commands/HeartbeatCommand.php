@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PublishLayer\LaravelConnector\Commands;
 
+use Composer\InstalledVersions;
 use Illuminate\Console\Command;
 use PublishLayer\LaravelConnector\Contracts\PublishLayerClientContract;
 use PublishLayer\LaravelConnector\Models\PublishLayerConnectorHeartbeat;
@@ -37,7 +38,7 @@ class HeartbeatCommand extends Command
 
         $payload = [
             'platform' => 'laravel',
-            'connector_version' => '0.1.0',
+            'connector_version' => $this->resolveConnectorVersion(),
             'framework_version' => app()->version(),
             'php_version' => PHP_VERSION,
             'app_url' => config('app.url'),
@@ -71,5 +72,24 @@ class HeartbeatCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function resolveConnectorVersion(): string
+    {
+        if (! class_exists(InstalledVersions::class)) {
+            return 'unknown';
+        }
+
+        if (InstalledVersions::isInstalled('publishlayer/laravel-connector')) {
+            return InstalledVersions::getPrettyVersion('publishlayer/laravel-connector') ?? 'unknown';
+        }
+
+        $rootPackage = InstalledVersions::getRootPackage();
+
+        if (($rootPackage['name'] ?? null) === 'publishlayer/laravel-connector') {
+            return (string) ($rootPackage['pretty_version'] ?? $rootPackage['version'] ?? 'unknown');
+        }
+
+        return 'unknown';
     }
 }
