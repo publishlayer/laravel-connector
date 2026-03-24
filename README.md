@@ -1,117 +1,212 @@
 # PublishLayer Laravel Connector
 
-`publishlayer/laravel-connector` gives a Laravel site a local PublishLayer knowledge base renderer and sync receiver.
+`publishlayer/laravel-connector` lets a Laravel application receive PublishLayer content, store it locally, and either render a hosted knowledge base or expose the synced content to a custom frontend.
 
-It is opinionated by default:
-- local database storage for synced articles and categories
-- hosted knowledge base routes and Blade views
+It is a package, not a starter app. It ships with:
+
 - authenticated sync and health endpoints
-- headless mode support
-- publishable config, migrations, and overridable views
+- hosted knowledge base views with publishable Blade templates
+- optional headless mode for custom frontends
+- canonical Markdown delivery with `llms.txt` discovery endpoints
+- signed webhook handling for PublishLayer Inbox flows
+- install, diagnostics, heartbeat, and demo-content commands
+
+## Compatibility
+
+- PHP: `^8.2`
+- Laravel components: `^11.0|^12.0`
+- Testbench coverage in CI:
+  - PHP 8.2 + Laravel 11
+  - PHP 8.3 + Laravel 11
+  - PHP 8.4 + Laravel 12
 
 ## Installation
 
 ```bash
-composer require publishlayer/laravel-connector:^0.1
+composer require publishlayer/laravel-connector
 php artisan publishlayer:install --publish-config --publish-migrations --publish-views
 php artisan migrate
 ```
 
-Set these values in `.env`:
+For a one-command local setup after publishing files:
+
+```bash
+php artisan publishlayer:install --migrate
+```
+
+## Quick Start
+
+Add the core connector settings to `.env`:
 
 ```env
 PUBLISHLAYER_ENABLED=true
 PUBLISHLAYER_MODE=hosted_views
-PUBLISHLAYER_API_KEY=your-shared-api-key
+PUBLISHLAYER_API_KEY=your-shared-sync-key
 PUBLISHLAYER_SITE_ID=your-site-id
 PUBLISHLAYER_ROUTE_PREFIX=knowledge
 PUBLISHLAYER_API_PREFIX=api/publishlayer
 PUBLISHLAYER_LAYOUT=layouts.app
 ```
 
-Optional:
+Optional sync signing:
 
 ```env
-PUBLISHLAYER_SYNC_SIGNING_SECRET=shared-hmac-secret
-PUBLISHLAYER_ENABLE_CATEGORIES=true
-PUBLISHLAYER_ENABLE_RELATED_ARTICLES=true
-PUBLISHLAYER_AUTO_PUBLISH=false
+PUBLISHLAYER_SYNC_SIGNING_SECRET=your-hmac-secret
+```
+
+Optional Markdown and hosted UI settings:
+
+```env
 PUBLISHLAYER_MARKDOWN_ENABLED=true
 PUBLISHLAYER_MARKDOWN_ACCEPT_NEGOTIATION=true
 PUBLISHLAYER_MARKDOWN_CACHE_TTL=300
+PUBLISHLAYER_CATEGORY_OVERVIEW_LIMIT=6
+PUBLISHLAYER_RELATED_ARTICLES_LIMIT=4
 ```
 
-Seed demo content if you want an immediate smoke test:
+Smoke test the install:
 
 ```bash
+php artisan publishlayer:health-check
 php artisan publishlayer:seed-demo-content
 ```
 
-## Commands
+## Package Modes
 
-- `php artisan publishlayer:install`
-- `php artisan publishlayer:health-check`
-- `php artisan publishlayer:seed-demo-content`
+### Hosted views
 
-Useful options:
-
-```bash
-php artisan publishlayer:install --publish-config --publish-views --publish-migrations --seed-demo
-```
-
-## Modes
-
-### `hosted_views`
-
-- registers public knowledge base routes
-- renders default Blade templates under the `publishlayer::` namespace
-- keeps the host application's layout, header, footer, and branding
-
-### `headless`
-
-- disables the hosted knowledge base routes
-- keeps sync and health endpoints active
-- still stores content locally for custom API or frontend rendering
-
-## Routes
-
-Default hosted routes in `hosted_views` mode:
+`PUBLISHLAYER_MODE=hosted_views` registers:
 
 - `GET /llms.txt`
 - `GET /llms-full.txt`
-- `GET /knowledge`
-- `GET /knowledge/categorie/{slug}`
-- `GET /knowledge/{slug}.md`
-- `GET /knowledge/{slug}`
+- `GET /{route_prefix}`
+- `GET /{route_prefix}/categories/{slug}`
+- `GET /{route_prefix}/{slug}`
+- `GET /{route_prefix}/{slug}.md`
 
-Default API routes whenever the connector is enabled:
+The default route prefix is `knowledge`, so the category route becomes `/knowledge/categories/{slug}`.
+
+### Headless
+
+`PUBLISHLAYER_MODE=headless` disables the hosted knowledge base and discovery routes. Sync, health, webhook, activity, heartbeat, and inbox routes stay available while the package is enabled.
+
+## Routes and Endpoints
+
+### Sync API
+
+These routes use the configured API middleware and are always available while `PUBLISHLAYER_ENABLED=true`:
 
 - `GET /api/publishlayer/health`
 - `POST /api/publishlayer/sync`
 - `POST /api/publishlayer/webhook`
 
-All route names are prefixed with `publishlayer.`.
+`POST /api/publishlayer/webhook` is a compatibility alias to the same sync controller used by `/sync`.
 
-## Markdown delivery
+### Webhooks and connector telemetry
 
-When `publishlayer.markdown.enabled=true`, the connector exposes canonical Markdown for published connector articles.
+These routes are separate from the sync API:
 
-- Direct route: `GET /knowledge/{slug}.md`
-- Accept negotiation: `GET /knowledge/{slug}` with `Accept: text/markdown`
-- AI discovery: `GET /llms.txt` and `GET /llms-full.txt`
+- `POST /publishlayer/webhook`
+- `GET|POST /publishlayer/connector/activity`
+- `GET|POST /publishlayer/activity`
+- `POST /publishlayer/connector/heartbeat`
+- `POST /publishlayer/heartbeat`
 
-If your route prefix is `docs`, the Markdown route becomes `/docs/{slug}.md`. If the route prefix is empty, the route becomes `/{slug}.md`.
+The webhook endpoint is protected by `PUBLISHLAYER_WEBHOOK_SECRET` and is used for inbox-style events such as `draft.ready`.
 
-Markdown is fetched from the PublishLayer site-scoped API and cached locally. The connector:
+### Inbox routes
 
-- only serves Markdown for locally published articles
-- uses `markdown_checksum` from PublishLayer to refresh the cached payload
-- keeps a stale cache copy and serves it when PublishLayer is temporarily unavailable
-- never exposes draft or archived local content through the Markdown route
+Inbox routes are enabled by default and use the `publishlayer_inbox.php` config:
 
-## Sync payload
+- Portal: `GET /app/content`
+- Draft detail: `GET /app/content/{draft}`
+- Approve draft: `POST /app/content/{draft}/approve`
+- Publish draft: `POST /app/content/{draft}/publish`
+- Public draft page: `GET /content/{slug}`
 
-The connector accepts knowledge article payloads from PublishLayer:
+## Configuration
+
+The package publishes three config files:
+
+- `config/publishlayer.php`
+- `config/publishlayer_connector.php`
+- `config/publishlayer_inbox.php`
+
+### Core connector settings
+
+Use `config/publishlayer.php` for:
+
+- package enablement
+- hosted vs headless mode
+- sync authentication
+- route prefixes
+- hosted view layout
+- Markdown delivery
+- pagination, labels, SEO, categories, and related articles
+
+### PublishLayer API client settings
+
+Use `config/publishlayer_connector.php` for:
+
+- `PUBLISHLAYER_BASE_URL`
+- `PUBLISHLAYER_WORKSPACE_ID`
+- `PUBLISHLAYER_CLIENT_SITE_ID`
+- `PUBLISHLAYER_SITE_KEY`
+- `PUBLISHLAYER_TIMEOUT`
+- `PUBLISHLAYER_CONNECTOR_PUBLIC_URL`
+- `PUBLISHLAYER_WEBHOOK_SECRET`
+- webhook header and queue settings
+- image download behavior
+- schema cache behavior
+
+Legacy `PL_CONNECTOR_*` environment variables are still accepted for existing installs, but new public installs should use the `PUBLISHLAYER_*` names.
+
+### Inbox settings
+
+Use `config/publishlayer_inbox.php` for:
+
+- `PUBLISHLAYER_INBOX_ENABLED`
+- `PUBLISHLAYER_INBOX_PORTAL_PREFIX`
+- `PUBLISHLAYER_INBOX_PORTAL_MIDDLEWARE`
+- `PUBLISHLAYER_INBOX_PUBLIC_PATH`
+- `PUBLISHLAYER_INBOX_IMAGE_PATH_PREFIX`
+
+`PUBLISHLAYER_INBOX_ENABLED` is the global default. Per-site overrides can still be stored in `publishlayer_settings`.
+
+## Authentication Model
+
+### Sync and health endpoints
+
+The sync middleware accepts any of the following:
+
+- `X-PublishLayer-Key: {api key}`
+- the configured `PUBLISHLAYER_AUTH_HEADER`
+- `Authorization: Bearer {api key}`
+- HMAC signatures using `PUBLISHLAYER_SYNC_SIGNING_SECRET`
+
+If `PUBLISHLAYER_SITE_ID` is set, incoming `site_id` values must match exactly.
+
+### Signed webhook endpoint
+
+`POST /publishlayer/webhook` requires:
+
+- `X-PublishLayer-Timestamp`
+- `X-PublishLayer-Signature`
+- a body signature generated from `{timestamp}.{raw_body}` with `PUBLISHLAYER_WEBHOOK_SECRET`
+
+## Markdown Support
+
+When `publishlayer.markdown.enabled` is on:
+
+- `GET /knowledge/{slug}.md` returns canonical Markdown
+- `GET /knowledge/{slug}` can return Markdown when `Accept: text/markdown`
+- `/llms.txt` and `/llms-full.txt` expose discovery documents
+
+Markdown is only served for locally published articles. The package fetches site-scoped Markdown from PublishLayer, caches it locally, and serves stale cache entries when the upstream API is temporarily unavailable.
+
+## Sync Payload
+
+Minimal working sync payload:
 
 ```json
 {
@@ -135,64 +230,78 @@ Supported article statuses:
 - `archived`
 - `unpublished`
 - `deleted`
+- `reference`
 
-`deleted` removes the local article record idempotently. `unpublished` is stored as an archived article and no longer appears on hosted public routes.
+The sync service also accepts optional category and related-article payloads.
 
-## Webhook auth
+## Minimal Working Example
 
-The connector accepts either:
+```bash
+composer require publishlayer/laravel-connector
+php artisan publishlayer:install --publish-config --publish-migrations --publish-views
+php artisan migrate
+php artisan publishlayer:seed-demo-content
+php artisan publishlayer:health-check
+```
 
-- `X-PublishLayer-Key: {api key}`
-- `Authorization: Bearer {api key}`
-- HMAC request signing with `PUBLISHLAYER_SYNC_SIGNING_SECRET`
+Then open `/knowledge` in hosted mode or start sending signed sync requests to `/api/publishlayer/sync`.
 
-If `PUBLISHLAYER_SITE_ID` is configured, incoming `site_id` values must match it exactly.
+## Typical Integration Flow
 
-## View overrides
+1. Install the package and run migrations.
+2. Set `PUBLISHLAYER_API_KEY` and `PUBLISHLAYER_SITE_ID`.
+3. Choose `hosted_views` or `headless`.
+4. If you use inbox-style webhooks, set `PUBLISHLAYER_WEBHOOK_SECRET`.
+5. Configure PublishLayer to send article sync payloads to `/api/publishlayer/sync`.
+6. Optionally configure signed draft-ready webhooks at `/publishlayer/webhook`.
+7. Run `php artisan publishlayer:health-check` to verify the install.
 
-Publish the default views:
+## View Overrides
+
+Publish the package views:
 
 ```bash
 php artisan vendor:publish --tag=publishlayer-connector-views
 ```
 
-Then override them in:
+Override them under:
 
-- `resources/views/vendor/publishlayer/knowledge/index.blade.php`
-- `resources/views/vendor/publishlayer/knowledge/category.blade.php`
-- `resources/views/vendor/publishlayer/knowledge/show.blade.php`
+- `resources/views/vendor/publishlayer/knowledge`
+- `resources/views/vendor/publishlayer/inbox`
 
-Default views extend:
+The hosted knowledge templates extend `config('publishlayer.layout', 'layouts.app')`.
 
-```php
-config('publishlayer.layout', 'layouts.app')
-```
+## Commands
+
+- `php artisan publishlayer:install`
+- `php artisan publishlayer:health-check`
+- `php artisan publishlayer:seed-demo-content`
+- `php artisan publishlayer:doctor`
+- `php artisan publishlayer:webhooks:register`
+- `php artisan publishlayer:heartbeat`
+- `php artisan pl-inbox:toggle {siteKey} {on|off}`
 
 ## Troubleshooting
 
-Run:
+- `PublishLayer sync authentication is not configured.`
+  Set `PUBLISHLAYER_API_KEY` or `PUBLISHLAYER_SYNC_SIGNING_SECRET`.
+- `The provided site_id [...] does not match the configured PublishLayer site [...]`
+  Align the inbound `site_id` with `PUBLISHLAYER_SITE_ID`.
+- `PublishLayer webhook signing secret is not configured.`
+  Set `PUBLISHLAYER_WEBHOOK_SECRET` before accepting signed webhooks.
+- Hosted routes return `404`
+  Confirm `PUBLISHLAYER_ENABLED=true` and `PUBLISHLAYER_MODE=hosted_views`.
+- Markdown route returns `404`
+  Confirm the article is locally published and `PUBLISHLAYER_MARKDOWN_ENABLED=true`.
 
-```bash
-php artisan publishlayer:health-check
-```
+## Upgrading
 
-Common issues:
+This is the first public release line. Future upgrade notes and breaking changes will be recorded in this README and in `CHANGELOG.md`.
 
-- `FAIL app_key`: set `APP_KEY` and run `php artisan key:generate` if needed
-- `FAIL database.tables`: publish migrations and run `php artisan migrate`
-- `FAIL route.sync`: clear route cache and confirm `PUBLISHLAYER_ENABLED=true`
-- `FAIL site_id`: set `PUBLISHLAYER_SITE_ID` to the exact value configured in PublishLayer
-- `401 Unauthorized PublishLayer sync request`: verify the shared API key or HMAC secret
-- `422 The provided site_id does not match`: confirm the destination site identifier matches the connector config
+## Contributing
 
-## Health endpoint
+See `CONTRIBUTING.md` for local setup and pull request expectations.
 
-The platform can test the connector with:
+## License
 
-```http
-GET /api/publishlayer/health
-X-PublishLayer-Key: your-shared-api-key
-X-PublishLayer-Site: your-site-id
-```
-
-The response includes config, route, database, and latest sync log checks.
+MIT. See `LICENSE`.

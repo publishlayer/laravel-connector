@@ -59,7 +59,7 @@ class HostedKnowledgeBaseRenderingTest extends TestCase
             ->assertSee('Hosted article')
             ->assertSee('Operations');
 
-        $this->get('/knowledge/categorie/operations')
+        $this->get('/knowledge/categories/operations')
             ->assertOk()
             ->assertSee('Operations')
             ->assertSee('Hosted article');

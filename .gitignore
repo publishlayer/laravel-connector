@@ -1,1 +1,12 @@
 /vendor/
+/.idea/
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+/.coverage
+/coverage/
+/.DS_Store
+/.fleet/
+/.vscode/
+*.swp
+*.swo
+*.tmp

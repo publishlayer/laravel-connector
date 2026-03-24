@@ -21,4 +21,15 @@ class InstallCommandTest extends TestCase
             ->expectsOutputToContain('/api/publishlayer/sync')
             ->assertExitCode(0);
     }
+
+    public function test_install_command_can_run_migrations(): void
+    {
+        $this->artisan('migrate:fresh')->assertExitCode(0);
+
+        $this->artisan('publishlayer:install --migrate')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseCount('publishlayer_articles', 0);
+        $this->assertDatabaseCount('publishlayer_webhook_events', 0);
+    }
 }

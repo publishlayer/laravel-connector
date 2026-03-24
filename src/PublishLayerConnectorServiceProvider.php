@@ -83,7 +83,7 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         ], 'publishlayer-connector-config');
 
         $this->publishes([
-            __DIR__ . '/../resources/views/knowledge' => resource_path('views/vendor/publishlayer/knowledge'),
+            __DIR__ . '/../resources/views' => resource_path('views/vendor/publishlayer'),
         ], 'publishlayer-connector-views');
 
         $this->publishes([
@@ -105,14 +105,16 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         ], 'publishlayer-connector-migrations');
 
         $this->app['router']->aliasMiddleware('publishlayer.sync', AuthorizePublishLayerSync::class);
-        $this->app->make(ConnectorRouteRegistrar::class)->register();
-
-        $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
-        $this->loadRoutesFrom(__DIR__ . '/../routes/inbox.php');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'publishlayer');
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'publishlayer-connector');
 
         Event::listen(MigrationsEnded::class, FlushSchemaStateCache::class);
+
+        if ($this->packageIsEnabled()) {
+            $this->app->make(ConnectorRouteRegistrar::class)->register();
+            $this->loadRoutesFrom(__DIR__ . '/../routes/webhooks.php');
+            $this->loadRoutesFrom(__DIR__ . '/../routes/inbox.php');
+        }
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -162,5 +164,10 @@ class PublishLayerConnectorServiceProvider extends ServiceProvider
         }
 
         return false;
+    }
+
+    private function packageIsEnabled(): bool
+    {
+        return (bool) config('publishlayer.enabled', true);
     }
 }

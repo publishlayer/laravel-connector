@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Support\Facades\Route;
 use PublishLayer\LaravelConnector\Http\Controllers\InboxDraftController;
 use PublishLayer\LaravelConnector\Http\Controllers\InboxPublicController;

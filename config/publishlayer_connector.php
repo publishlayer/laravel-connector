@@ -1,7 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 return [
-    // Support both legacy PL_CONNECTOR_* keys and PUBLISHLAYER_* keys.
+    // The legacy PL_CONNECTOR_* keys remain supported for existing private installs.
     'base_url' => env('PUBLISHLAYER_BASE_URL', env('PL_CONNECTOR_BASE_URL', 'https://api.publishlayer.com')),
     'api_key' => env('PUBLISHLAYER_API_KEY', env('PL_CONNECTOR_API_KEY')),
     'workspace_id' => env('PUBLISHLAYER_WORKSPACE_ID', env('PL_CONNECTOR_WORKSPACE_ID')),

@@ -81,7 +81,7 @@ class KnowledgeSearchTest extends TestCase
             'published_at' => now(),
         ]);
 
-        $this->get('/knowledge/categorie/operations?q=Automation')
+        $this->get('/knowledge/categories/operations?q=Automation')
             ->assertOk()
             ->assertSee('Network Automation')
             ->assertDontSee('Release Planning');

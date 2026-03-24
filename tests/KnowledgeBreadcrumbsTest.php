@@ -37,7 +37,7 @@ class KnowledgeBreadcrumbsTest extends TestCase
             ->assertOk()
             ->assertSee('aria-label="Breadcrumbs"', false)
             ->assertSee('/knowledge', false)
-            ->assertSee('/knowledge/categorie/operations', false)
+            ->assertSee('/knowledge/categories/operations', false)
             ->assertSee('Breadcrumb Article');
     }
 }

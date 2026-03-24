@@ -1,0 +1,76 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-interaction --prefer-dist
+
+      - name: Validate composer metadata
+        run: composer validate --strict
+
+      - name: Run test suite
+        run: composer test
+
+  compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "8.2"
+            laravel: "^11.0"
+            testbench: "^9.0"
+            phpunit: "^10.5"
+          - php: "8.3"
+            laravel: "^11.0"
+            testbench: "^9.0"
+            phpunit: "^10.5"
+          - php: "8.4"
+            laravel: "^12.0"
+            testbench: "^10.0"
+            phpunit: "^11.5"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Configure dependency set
+        run: |
+          composer require --dev --no-interaction --no-update \
+            "illuminate/console:${{ matrix.laravel }}" \
+            "illuminate/database:${{ matrix.laravel }}" \
+            "illuminate/http:${{ matrix.laravel }}" \
+            "illuminate/routing:${{ matrix.laravel }}" \
+            "illuminate/support:${{ matrix.laravel }}" \
+            "illuminate/validation:${{ matrix.laravel }}" \
+            "illuminate/view:${{ matrix.laravel }}" \
+            "orchestra/testbench:${{ matrix.testbench }}" \
+            "phpunit/phpunit:${{ matrix.phpunit }}"
+
+      - uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-interaction --prefer-dist
+
+      - name: Run test suite
+        run: composer test

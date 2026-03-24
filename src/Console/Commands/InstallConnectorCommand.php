@@ -16,6 +16,7 @@ class InstallConnectorCommand extends Command
         {--publish-config : Publish the package config files}
         {--publish-views : Publish the default knowledge base views}
         {--publish-migrations : Publish the package migration stubs}
+        {--migrate : Run database migrations after publishing assets}
         {--force : Overwrite publishable assets when publishing}
         {--seed-demo : Seed demo knowledge base content after setup checks pass}';
 
@@ -104,6 +105,12 @@ class InstallConnectorCommand extends Command
             ]);
         }
 
+        if ((bool) $this->option('migrate')) {
+            $this->call('migrate', ['--force' => true]);
+            $knowledgeTablesReady = $schemaState->hasTable('publishlayer_articles');
+            $webhookTablesReady = $schemaState->hasTable('publishlayer_webhook_events');
+        }
+
         if ((bool) $this->option('seed-demo')) {
             $this->call('publishlayer:seed-demo-content');
         }
@@ -126,11 +133,16 @@ class InstallConnectorCommand extends Command
         }
         if ($mode === 'hosted_views') {
             $this->line(sprintf('%d. Hosted knowledge base: /%s', $step++, $routePrefix));
-            $this->line(sprintf('%d. Override views in resources/views/vendor/publishlayer/knowledge if needed.', $step++));
+            $this->line(sprintf('%d. Override views in resources/views/vendor/publishlayer if needed.', $step++));
         } else {
             $this->line(sprintf('%d. Hosted knowledge routes are disabled because the connector runs in headless mode.', $step++));
         }
         $this->line(sprintf('%d. Run php artisan publishlayer:health-check after configuration changes.', $step));
+
+        $finalSummary = $healthService->summary();
+        $hasCriticalFailures = collect($finalSummary['checks'])->contains(
+            static fn (array $check): bool => (string) ($check['status'] ?? '') === 'fail'
+        );
 
         Log::info('PublishLayer connector install command executed.', [
             'config_published' => $configPublished,
@@ -139,6 +151,7 @@ class InstallConnectorCommand extends Command
             'published_config' => (bool) $this->option('publish-config'),
             'published_views' => (bool) $this->option('publish-views'),
             'published_migrations' => (bool) $this->option('publish-migrations'),
+            'ran_migrations' => (bool) $this->option('migrate'),
             'seeded_demo_content' => (bool) $this->option('seed-demo'),
         ]);
 

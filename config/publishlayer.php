@@ -99,12 +99,11 @@ return [
         'results_summary' => ':count article|:count articles',
     ],
 
-    // TODO: Phase 2 should connect this flag to sync orchestration and publishing policies.
     'auto_publish' => (bool) env('PUBLISHLAYER_AUTO_PUBLISH', false),
 
-    // TODO: Phase 2 should use this when category data is added to the sync payload and storage layer.
+    // Disable category persistence and hosted category pages when your integration does not need them.
     'enable_categories' => (bool) env('PUBLISHLAYER_ENABLE_CATEGORIES', true),
 
-    // TODO: Phase 2 should use this when related article associations are stored locally.
+    // Disable related article references when you want to keep synced payloads minimal.
     'enable_related_articles' => (bool) env('PUBLISHLAYER_ENABLE_RELATED_ARTICLES', true),
 ];

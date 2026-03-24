@@ -22,7 +22,7 @@ class HostedKnowledgeBaseRoutesTest extends TestCase
         self::assertSame('/llms.txt', route('publishlayer.discovery.llms', absolute: false));
         self::assertSame('/llms-full.txt', route('publishlayer.discovery.llms-full', absolute: false));
         self::assertSame('/knowledge', route('publishlayer.knowledge.index', absolute: false));
-        self::assertSame('/knowledge/categorie/networking', route('publishlayer.knowledge.category', ['slug' => 'networking'], false));
+        self::assertSame('/knowledge/categories/networking', route('publishlayer.knowledge.category', ['slug' => 'networking'], false));
         self::assertSame('/knowledge/getting-started.md', route('publishlayer.knowledge.markdown', ['slug' => 'getting-started'], false));
         self::assertSame('/knowledge/getting-started', route('publishlayer.knowledge.show', ['slug' => 'getting-started'], false));
         self::assertSame('/api/publishlayer/sync', route('publishlayer.api.sync', absolute: false));
